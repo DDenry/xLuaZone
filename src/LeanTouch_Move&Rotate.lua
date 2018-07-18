@@ -111,7 +111,7 @@ function RotateCamera()
     right:Normalize()
     up:Normalize()
     newPosition:Normalize()
-    self.transform.position = newPosition * radius
+    self.transform.position = newPosition * radius * speed
     self.transform:LookAt(Vector3.zero, up)
 end
 

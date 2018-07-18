@@ -200,6 +200,7 @@ function PROCESS.Execute()
 
             --修改任务状态
             PROCESS.TaskQueue[_task.id].state = "Processing"
+
             --
             LogInfo("EXECUTE TASK " .. PROCESS.TaskQueue[_task.id].task.id, PROCESS.TaskQueue[_task.id].task.name)
             --
@@ -222,16 +223,14 @@ function PROCESS.Execute()
 
                 --执行
                 for i, case in pairs(cases) do
-                    assert(coroutine.resume(coroutine.create(function()
-                        cases[i]()
-                    end)))
+                    cases[i]()
                 end
             else
                 --
                 PROCESS.ListenProcess({ _task.name }, "task " .. _task.id, "ADD")
                 --
                 assert(coroutine.resume(coroutine.create(function()
-					_task.runnable()
+                    _task.runnable()
                 end)))
             end
         end
@@ -509,7 +508,8 @@ function start()
                 --
                 local callback = select(1, ...)
                 --
-                yield_return(callback:Invoke("Load subapp_config"))
+                coroutine.yield(callback:Invoke("Load subapp_config"))
+                --yield_return(callback:Invoke("Load subapp_config"))
             end)
             --
             assert(coroutine.resume(COROUTINE_LoadSubAppConfig, TaskDoneListener))
@@ -524,7 +524,8 @@ function start()
                 --
                 local callback = select(1, ...)
                 --
-                yield_return(callback:Invoke("Load scene_config"))
+                coroutine.yield(callback:Invoke("Load scene_config"))
+                --yield_return(callback:Invoke("Load scene_config"))
             end)
             --
             assert(coroutine.resume(COROUTINE_LoadSceneConfig, TaskDoneListener))
@@ -2036,7 +2037,7 @@ function CALLBACK.ModelLoaded(...)
 
     --模型加载完毕回调
     local callback = select(1, ...)
-    yield_return(callback:Invoke("Model Loaded"))
+    coroutine.yield(callback:Invoke("Model Loaded"))
 end
 
 --模型释放后回调

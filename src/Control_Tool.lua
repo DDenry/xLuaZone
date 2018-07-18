@@ -59,6 +59,9 @@ local Coroutine_Cross
 
 local CameraBG = GameObject.Find("Root/Models").transform:Find("Camera BG").gameObject
 local CameraModel = GameObject.Find("Root/Models").transform:Find("Camera").gameObject
+
+local FingerOperator = CameraModel:GetComponent(typeof(CS.XLuaBehaviour))
+
 --
 --场景中储存shader的对象OnePlaneBSP_pre
 local OnePlaneBSP_pre = GameObject.Find("Root/TmpSave/OnePlaneBSP_pre")
@@ -192,8 +195,6 @@ local defaultViewTransform = {
     rotation = Vector3.zero,
     localScale = Vector3.one
 }
-local FingerOperator
-local FingerOperator_Scale
 
 local haveViewPort = false
 local haveBoom = false
@@ -430,23 +431,13 @@ function StudioData.FindStudioObjectData()
 
             --获取视口位置
             if objects[i].gameObject:GetComponent(typeof(CS.SceneStudio.ViewPortData)) ~= nil then
-                --
+                --视口配置信息存在
                 haveViewPort = true
 
-                --手势操作脚本
-                FingerOperator = CameraModel:GetComponent(typeof(CS.XLuaBehaviour))
-
-                CameraModel.transform.position = objects[i].gameObject.transform.position
-                CameraModel.transform.rotation = objects[i].gameObject.transform.rotation
-                CameraModel.transform.localScale = objects[i].gameObject.transform.localScale
-
                 --保存场景视口初始信息
-                defaultViewTransform['position'] = CameraModel.transform.position
-                defaultViewTransform['rotation'] = CameraModel.transform.eulerAngles
-                defaultViewTransform['localScale'] = CameraModel.transform.localScale
-
-                --
-                --CameraModel.transform:Find("Camera").gameObject.transform.localPosition = Vector3.zero
+                defaultViewTransform['position'] = objects[i].gameObject.transform.position
+                defaultViewTransform['rotation'] = objects[i].gameObject.transform.rotation
+                defaultViewTransform['localScale'] = objects[i].gameObject.transform.localScale
             end
 
             --将id和gameObject对应
@@ -662,6 +653,7 @@ function CALLBACK.OnPageFinished(content)
     --显示背板
     UniWebViewPanelButton.gameObject:SetActive(true)
 end
+
 --
 function CALLBACK.OnPageErrorReceived(content)
     print("mulModelHtml_Page ErrorReceived:")
@@ -801,7 +793,7 @@ function PROCESS.SetSceneTool()
             CROSS.InitCrossFunction()
         end)
         --
-        coroutine.resume(Coroutine_Cross)
+        assert(coroutine.resume(Coroutine_Cross))
 
         --根据参数设置切面功能
         if ((sectionArguments["canControl"] == nil) or (not sectionArguments["canControl"])) then
@@ -848,46 +840,34 @@ function StudioData.DataLoadedCompleted()
     assert(coroutine.resume(coroutine.create(function()
         --初始化相机位置
         ButtonReset0.onClick:Invoke()
+
         --开启模型相机
         CameraModel:SetActive(true)
+
         --相机动画时长为1.0s
         --等待相机动画结束后
         yield_return(CS.UnityEngine.WaitForSeconds(1.0))
+
         print("Camera's animation played completed!")
 
         --显示背景切换按钮
         if sceneType == "AR&VR" then
             --初始化按钮状态
-            SwitchButton.gameObject:GetComponent("Image").color = { r = 60 / 255, g = 120 / 255, b = 40 / 255, a = 1 }
-            SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleRight
-            SwitchButtonText.text = "实景"
-            SwitchButtonText.gameObject.transform:SetSiblingIndex(0)
-            --SwitchButton.gameObject:GetComponent("Image").color = { r = 1, g = 1, b = 1, a = 90 / 255 }
-            --SwitchButtonText.text = "虚景"
-            --SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleLeft
-            --
-            --SwitchButtonText.gameObject.transform:SetSiblingIndex(1)
+            SwitchButton.gameObject:GetComponent("Image").color = { r = 1, g = 1, b = 1, a = 90 / 255 }
+            SwitchButtonText.text = "虚景"
+            SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleLeft
+
+            SwitchButtonText.gameObject.transform:SetSiblingIndex(1)
             --
             SwitchButton.gameObject:SetActive(true)
-
-            --默认打开相机
-            --SwitchButton.onClick:Invoke()
         end
 
-        --如果存在视口信息
-        if haveViewPort then
-            --开启手势操作
-            FingerOperator.enabled = true
-        else
-            --开启移动、旋转手势操作
-            Contents:GetComponent(typeof(CS.XLuaBehaviour)).enabled = true
-            --开启模型缩放的手势操作
-            CameraModel:GetComponent(typeof(CS.XLuaBehaviour)).enabled = true
-        end
+        --开启手势操作
+        FingerOperator.enabled = true
 
         --隐藏Loading界面
         Loading:SetActive(false)
-        --
+
         --判断是否显示多模型列表
         PROCESS.NeedShowMulModelListOrNot()
     end)))
@@ -1127,24 +1107,14 @@ function COMMON.RegisterListener()
             MenuUI:SetActive(true)
         end
 
+        --
         ButtonResetImage.color = pointUnselectedColor
         ButtonResetText.color = pointUnselectedColor
 
-        --如果存在视口信息
-        if haveViewPort then
-            --
-            FingerOperator.enabled = false
-
-            CameraModel.transform.localPosition = defaultViewTransform['position']
-            CameraModel.transform.localRotation = Quaternion.Euler(defaultViewTransform['rotation'])
-            CameraModel.transform.localScale = defaultViewTransform['localScale']
-            --
-            FingerOperator.enabled = true
-        else
-            Contents.transform.position = defaultViewTransform['position']
-            Contents.transform.localRotation = Quaternion.Euler(defaultViewTransform['rotation'])
-            CameraModel.transform.localScale = defaultViewTransform['localScale']
-        end
+        --
+        CameraModel.transform.position = defaultViewTransform['position']
+        CameraModel.transform.rotation = defaultViewTransform['rotation']
+        CameraModel.transform.localScale = defaultViewTransform['localScale']
     end)
 
     --动画播放按钮
