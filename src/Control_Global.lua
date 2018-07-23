@@ -357,8 +357,13 @@ local screenWidth = CS.UnityEngine.Screen.width
 --应用版本类型(Default is APPTYPE.DEBUG)
 local appVersionType = APPTYPE.DEBUG
 
-local sceneType = "AR&VR"
+--配置文件参数
 local trackerType = "Once"
+local sceneType = "AR&VR"
+local autoShowPoint = false
+local haveViewTransfer = false
+local defaultView = "Fake"
+
 local currentMarkerGameObject
 
 --RootPath
@@ -406,7 +411,6 @@ local canControl = false
 local table_MarkerToModel = {}
 
 local defaultOrderHtml
-local autoShowPoint = false
 
 local backGroundColor = {
     r = TitleImage.color.r,
@@ -1007,8 +1011,6 @@ end
 function CALLBACK.SceneConfigLoaded(sceneConfigJson)
     LogInfo("SceneConfig", sceneConfigJson)
     local sceneConfigTxt = JSON.Parse(sceneConfigJson)
-    --
-    local tmp_position = Vector3(0, 0, -250)
 
     --获取配置参数（容错）
     for i = 0, (sceneConfigTxt.Count - 1) do
@@ -1029,17 +1031,43 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
             else
                 _Global:SetData("autoShowPoint", false)
             end
+        elseif tostring(sceneConfigTxt[i]):find("haveViewTransfer") ~= nil then
+            --是否有视图切换的功能
+            if (sceneConfigTxt[i][0] ~= nil) then
+                _, _, _, haveViewTransfer = tostring(sceneConfigTxt[i][0]):find("([\"'])(.-)%1")
+                --判断参数是否合法
+                if not haveViewTransfer:toboolean() then
+                    haveViewTransfer = false
+                end
+            end
+            --
+            if (sceneConfigTxt[i][1] ~= nil) then
+                _, _, _, defaultView = tostring(sceneConfigTxt[i][1]):find("([\"'])(.-)%1")
+                --
+                if defaultView ~= "Fake" and defaultView ~= "Real" then
+                    defaultView = "Fake"
+                end
+            end
         elseif (string.find(tostring(sceneConfigTxt[i]), "position_") ~= nil) then
+            local _modelCamera = CameraModel.transform:Find("Camera").gameObject:GetComponent("Camera")
+
+            local _position = Vector3.zero
+
             --获取配置文件中相机的position
             if (sceneConfigTxt[i][0] ~= nil) then
-                _, _, _, tmp_position.x = string.find(tostring(sceneConfigTxt[i][0]), "([\"'])(.-)%1")
+                _, _, _, _position.x = string.find(tostring(sceneConfigTxt[i][0]), "([\"'])(.-)%1")
             end
             if (sceneConfigTxt[i][1] ~= nil) then
-                _, _, _, tmp_position.y = string.find(tostring(sceneConfigTxt[i][1]), "([\"'])(.-)%1")
+                _, _, _, _position.y = string.find(tostring(sceneConfigTxt[i][1]), "([\"'])(.-)%1")
             end
             if (sceneConfigTxt[i][2] ~= nil) then
-                _, _, _, tmp_position.z = string.find(tostring(sceneConfigTxt[i][2]), "([\"'])(.-)%1")
+                _, _, _, _position.z = string.find(tostring(sceneConfigTxt[i][2]), "([\"'])(.-)%1")
             end
+
+            --设置相机position
+            CameraModel.transform:Find("Camera").gameObject.transform.localPosition = _position
+            LogInfo("ModelCamera's position has set to :(" .. _position.x .. "," .. _position.y .. "," .. _position.z .. ")")
+
             --判断是否存在模型的缩放最值参数
             if (sceneConfigTxt[i][3] ~= nil) then
                 local tmp_minScale
@@ -1054,6 +1082,15 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
                 --SetData
                 _Global:SetData("maxScale", tonumber(tmp_maxScale))
                 LogInfo("Model_MaxScale", tmp_maxScale)
+            end
+
+            --
+            if (sceneConfigTxt[i][5] ~= nil) then
+                local _farClipPlane
+                _, _, _, _farClipPlane = string.find(tostring(sceneConfigTxt[i][5]), "([\"'])(.-)%1")
+                --设置相机深度 Far
+                _modelCamera.farClipPlane = _farClipPlane
+                LogInfo("Camera's farClipPlane has set to " .. _modelCamera.farClipPlane)
             end
         elseif (string.find(tostring(sceneConfigTxt[i]), "intensity") ~= nil) then
             --获取配置文件中的光照强度值
@@ -1092,13 +1129,13 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
         end
     end
 
-    --设置相机position
-    CameraModel.transform:Find("Camera").gameObject.transform.localPosition = tmp_position
-    LogInfo("Camera's position has set to :(" .. tmp_position.x .. "," .. tmp_position.y .. "," .. tmp_position.z .. ")")
     --
-    local _modelCamera = CameraModel.transform:Find("Camera").gameObject:GetComponent("Camera")
-    _modelCamera.farClipPlane = 300
-    LogInfo("Camera's farClipPlane has set to " .. _modelCamera.farClipPlane)
+    LogInfo("haveViewTransfer", haveViewTransfer)
+    LogInfo("defaultView", defaultView)
+
+    --
+    _Global:SetData("haveViewTransfer", haveViewTransfer)
+    _Global:SetData("defaultView", defaultView)
 
     --(配置文件中的切面参数)切面数量(0：剖切按钮不显示)
     _Global:SetData("sectionNum", sectionNum)
@@ -1295,7 +1332,7 @@ end
 --根据场景类型设置场景属性
 function PROCESS.SwitchScene()
     --
-    if type ~= "AR&VR" and type ~= "OnlyAR" and sceneType ~= "OnlyVR" then
+    if sceneType ~= "AR&VR" and sceneType ~= "OnlyAR" and sceneType ~= "OnlyVR" then
         sceneType = "AR&VR"
     end
 
@@ -1833,7 +1870,7 @@ function PROCESS.StartScanModelScene()
 
     --显示Loading界面
     local COROUTINE_ShowLoadingProcess = coroutine.create(function()
-        --
+        --显示加载Loading
         Loading:SetActive(true)
 
         LogInfo("Model Loading ……")
@@ -1870,17 +1907,18 @@ function PROCESS.StartScanModelScene()
             assert(coroutine.resume(coroutine.create(CALLBACK.ModelLoaded), TaskDoneListener))
         end)
 
-        --LoadStudioData:Load
         --此处是超级耗时的操作
         assert(coroutine.resume(coroutine.create(function()
             --延迟一帧
             yield_return(1)
-
+            --开始加载Studio数据
             StudioDataManager:LoadFromMobile(wwwAssetPath .. sceneName .. "/")
         end)))
     end)
+
     --
     assert(coroutine.resume(COROUTINE_ShowLoadingProcess))
+
     --
     if coroutine.status(COROUTINE_ShowLoadingProcess) == "suspended" then
         COROUTINE_ShowLoadingProcess = nil
@@ -1909,6 +1947,12 @@ function PROCESS.StartScanModelScene()
             LogWarning("There's no modelName!")
         end
 
+        --隐藏AR/VR按钮
+        ListButtonGroup:SetActive(false)
+
+        --隐藏AR/VR扩展按钮
+        ButtonExtendArea.gameObject:SetActive(false)
+
         --带有AR功能的场景
         if sceneType ~= "OnlyVR" then
             --单次识别模式
@@ -1918,19 +1962,13 @@ function PROCESS.StartScanModelScene()
             end
         end
 
-        --仅支持VR功能的场景
+        --仅支持VR场景
         if sceneType == "OnlyVR" then
-            --隐藏AR/VR按钮
-            ListButtonGroup:SetActive(false)
-
-            --隐藏AR/VR扩展按钮
-            ButtonExtendArea.gameObject:SetActive(false)
-
             --标题栏颜色
             backGroundColor.a = 0
             TitleImage.color = backGroundColor
-        elseif sceneType == "AR&VR" then
 
+        elseif sceneType == "AR&VR" then
             --标题栏颜色
             backGroundColor.a = 0
             TitleImage.color = backGroundColor
@@ -1939,40 +1977,45 @@ function PROCESS.StartScanModelScene()
             if loadedType == 0 then
 
                 if trackerType == "Once" then
-                    --隐藏AR/VR按钮
-                    ButtonAR.gameObject:SetActive(false)
-                    ButtonVR.gameObject:SetActive(false)
 
-                    --隐藏AR/VR扩展按钮
-                    ButtonExtendArea.gameObject:SetActive(false)
-                    --
-                    --VuforiaBehaviour.Instance.enabled = false
-                    --CS.Vuforia.VideoBackgroundManager.Instance:SetVideoBackgroundEnabled(false)
-                    --CameraAR:SetActive(false)
-                    --
-                    CameraBG:SetActive(false)
+                    --判断defaultView模式
+                    if defaultView == "Real" then
+                        --打开AR相机
+                        VuforiaBehaviour.Instance.enabled = true
+                        --关闭虚景相机
+                        CameraBG:SetActive(false)
+                    else
+                        --关闭AR相机
+                        VuforiaBehaviour.Instance.enabled = false
+                        --打开虚景相机
+                        CameraBG:SetActive(true)
+                    end
 
                 elseif trackerType == "Always" then
                     --标题栏颜色
                     backGroundColor.a = 80 / 255
                     TitleImage.color = backGroundColor
+
                     --打开AR相机
-                    --CameraAR:SetActive(true)
                     VuforiaBehaviour.Instance.enabled = true
-                    --Vuforia.CameraDevice.Instance:Start()
+                    --关闭虚景相机
+                    CameraBG:SetActive(false)
                 end
                 --VR
             elseif loadedType == 1 then
-                --
-                ListButtonGroup:SetActive(false)
-                --隐藏AR/VR扩展按钮
-                ButtonExtendArea.gameObject:SetActive(false)
-                --
-                VuforiaBehaviour.Instance.enabled = true
-                --CS.Vuforia.VideoBackgroundManager.Instance:SetVideoBackgroundEnabled(false)
-                --CameraAR:SetActive(false)
-                --
-                CameraBG:SetActive(false)
+                --打开实景
+                if defaultView == "Real" then
+                    --
+                    VuforiaBehaviour.Instance.enabled = true
+                    --
+                    CameraBG:SetActive(false)
+                    --显示虚景
+                else
+                    --
+                    VuforiaBehaviour.Instance.enabled = false
+                    --
+                    CameraBG:SetActive(true)
+                end
             end
         end
     end)))

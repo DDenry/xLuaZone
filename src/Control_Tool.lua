@@ -19,6 +19,7 @@ local Transform = CS.UnityEngine.Transform
 local Quaternion = CS.UnityEngine.Quaternion
 local Vector2 = CS.UnityEngine.Vector2
 local Vector3 = CS.UnityEngine.Vector3
+local Vector4 = CS.UnityEngine.Vector4
 local Object = CS.UnityEngine.Object
 local Destroy = Object.Destroy
 local JSON = CS.SimpleJSON.JSON
@@ -60,7 +61,7 @@ local Coroutine_Cross
 local CameraBG = GameObject.Find("Root/Models").transform:Find("Camera BG").gameObject
 local CameraModel = GameObject.Find("Root/Models").transform:Find("Camera").gameObject
 
-local FingerOperator = CameraModel:GetComponent(typeof(CS.XLuaBehaviour))
+local FingerOperator
 
 --
 --场景中储存shader的对象OnePlaneBSP_pre
@@ -190,11 +191,7 @@ local UniWebViewPanelButton = GameObject.Find("Root/UI").transform:Find("Overlay
 local step_text = PartUI.transform:Find("step_text").gameObject:GetComponent("Text")
 
 --
-local defaultViewTransform = {
-    position = Vector3.zero,
-    rotation = Vector3.zero,
-    localScale = Vector3.one
-}
+local defaultViewTransform = {}
 
 local haveViewPort = false
 local haveBoom = false
@@ -435,8 +432,8 @@ function StudioData.FindStudioObjectData()
                 haveViewPort = true
 
                 --保存场景视口初始信息
-                defaultViewTransform['position'] = objects[i].gameObject.transform.position
-                defaultViewTransform['rotation'] = objects[i].gameObject.transform.rotation
+                defaultViewTransform['position'] = objects[i].gameObject.transform.localPosition
+                defaultViewTransform['rotation'] = objects[i].gameObject.transform.localRotation
                 defaultViewTransform['localScale'] = objects[i].gameObject.transform.localScale
             end
 
@@ -827,6 +824,22 @@ end
 function StudioData.DataLoadedCompleted()
     print("All the studio data has been loaded!")
 
+    print("The scene " .. (haveViewPort and "have" or "don't have") .. " view port!")
+
+    --
+    if haveViewPort then
+        --操作相机脚本
+        FingerOperator = CameraModel:GetComponent(typeof(CS.XLuaBehaviour))
+    else
+        --操作模型脚本
+        FingerOperator = Contents:GetComponent(typeof(CS.XLuaBehaviour))
+    end
+
+    --相机复位
+    CameraModel.gameObject.transform.position = defaultViewTransform['position']
+    CameraModel.gameObject.transform.rotation = defaultViewTransform['rotation']
+    CameraModel.gameObject.transform.localScale = defaultViewTransform['localScale']
+
     --设置场景状态为工具第一步状态
     CS.SceneStudio.TimelinesManager.Instance.Timelines[0].Recorder:Apply()
 
@@ -838,8 +851,12 @@ function StudioData.DataLoadedCompleted()
 
     --开启协程
     assert(coroutine.resume(coroutine.create(function()
+
         --初始化相机位置
         ButtonReset0.onClick:Invoke()
+
+        --开启手势操作
+        FingerOperator.enabled = true
 
         --开启模型相机
         CameraModel:SetActive(true)
@@ -850,20 +867,23 @@ function StudioData.DataLoadedCompleted()
 
         print("Camera's animation played completed!")
 
-        --显示背景切换按钮
+        --只有AR&VR模式下才有该功能
         if sceneType == "AR&VR" then
-            --初始化按钮状态
-            SwitchButton.gameObject:GetComponent("Image").color = { r = 1, g = 1, b = 1, a = 90 / 255 }
-            SwitchButtonText.text = "虚景"
-            SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleLeft
-
-            SwitchButtonText.gameObject.transform:SetSiblingIndex(1)
+            --判断是否显示背景切换按钮
+            SwitchButton.gameObject:SetActive(_Global:GetData("haveViewTransfer"))
             --
-            SwitchButton.gameObject:SetActive(true)
+            if _Global:GetData("defaultView") == "Real" then
+                SwitchButton.gameObject:GetComponent("Image").color = { r = 60 / 255, g = 120 / 255, b = 40 / 255, a = 1 }
+                SwitchButtonText.text = "实景"
+                SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleRight
+                SwitchButtonText.gameObject.transform:SetSiblingIndex(0)
+            else
+                SwitchButton.gameObject:GetComponent("Image").color = { r = 1, g = 1, b = 1, a = 90 / 255 }
+                SwitchButtonText.text = "虚景"
+                SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleLeft
+                SwitchButtonText.gameObject.transform:SetSiblingIndex(1)
+            end
         end
-
-        --开启手势操作
-        FingerOperator.enabled = true
 
         --隐藏Loading界面
         Loading:SetActive(false)
@@ -986,6 +1006,13 @@ end
 --
 function InitDataTable()
 
+    --初始化相机transform
+    defaultViewTransform = {
+        position = Vector3.zero,
+        rotation = { x = 0, y = 0, z = 0, w = 1 },
+        localScale = Vector3.one
+    }
+
     --模型中所有可见的GameObject
     animationGameObject = {}
     --模型中所有可见GameObject的Id
@@ -1022,15 +1049,13 @@ function COMMON.RegisterListener()
         CameraBG:SetActive(not state)
         --实景状态
         if state then
+            --打开相机
             CS.Vuforia.VuforiaBehaviour.Instance.enabled = true
-            --CS.Vuforia.CameraDevice.Instance:Start()
-            --CS.Vuforia.VuforiaBehaviour.Instance:GetComponent("Camera").fieldOfView = _Global:GetData("FieldOfView")
-            --
         else
+            --关闭相机
             CS.Vuforia.VuforiaBehaviour.Instance.enabled = false
-            --CS.Vuforia.VideoBackgroundManager.Instance:SetVideoBackgroundEnabled(false)
         end
-        --_Global:GetData("ARCamera"):SetActive(state)
+
         --开关动画
         if state then
             --改变开关背景色
@@ -1042,6 +1067,7 @@ function COMMON.RegisterListener()
             SwitchButtonText.gameObject.transform:SetSiblingIndex(1)
         end
 
+        --
         SwitchButtonText.text = state and "实景" or "虚景"
         SwitchButtonText.alignment = state and CS.UnityEngine.TextAnchor.MiddleRight or CS.UnityEngine.TextAnchor.MiddleLeft
     end)
@@ -1084,7 +1110,7 @@ function COMMON.RegisterListener()
         ToolMenuButtonClick(4)
     end)
 
-    --
+    --复位按钮
     ButtonReset.onClick:AddListener(function()
         ButtonResetImage.color = (ButtonResetImage.color.r == 1 and pointSelectedColor) or pointUnselectedColor
         ButtonResetText.color = (ButtonResetText.color.r == 1 and pointSelectedColor) or pointUnselectedColor
@@ -1112,9 +1138,15 @@ function COMMON.RegisterListener()
         ButtonResetText.color = pointUnselectedColor
 
         --
-        CameraModel.transform.position = defaultViewTransform['position']
-        CameraModel.transform.rotation = defaultViewTransform['rotation']
-        CameraModel.transform.localScale = defaultViewTransform['localScale']
+        if haveViewPort then
+            CameraModel.transform.localPosition = defaultViewTransform['position']
+            CameraModel.transform.localRotation = defaultViewTransform['rotation']
+            CameraModel.transform.localScale = defaultViewTransform['localScale']
+        else
+            Contents.transform.localPosition = defaultViewTransform['position']
+            Contents.transform.localRotation = defaultViewTransform['rotation']
+            Contents.transform.localScale = defaultViewTransform['localScale']
+        end
     end)
 
     --动画播放按钮
@@ -2552,10 +2584,8 @@ function ondisable()
         _Global:ReleseData("scale_" .. animationGameObjectId[i])
     end
 
-    --
-    if FingerOperator ~= nil then
-        FingerOperator.enabled = false
-    end
+    --关闭手势操作
+    FingerOperator.enabled = false
 
     --标识爆炸和拆解为false
     defaultViewTransform = {}

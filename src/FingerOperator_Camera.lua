@@ -4,23 +4,20 @@
 ---
 local Vector3 = CS.UnityEngine.Vector3
 local LeanTouch = CS.Lean.LeanTouch
-local Camera = CS.UnityEngine.Camera
 local GameObject = CS.UnityEngine.GameObject
-local Time = CS.UnityEngine.Time
 local Input = CS.UnityEngine.Input
 
-local cameraX = GameObject.Find("Root/Models").transform:Find("CameraX").gameObject:GetComponent("Camera")
-local cameraY = GameObject.Find("Root/Models").transform:Find("CameraY").gameObject:GetComponent("Camera")
-local camera = GameObject.Find("Root/Models").transform:Find("Camera/Camera").gameObject:GetComponent("Camera")
-local speed = 0.1
-local radius = 20
-local minScale = 5
-local maxScale = 50
+local FingerOperator = {}
+
+local Models = GameObject.Find("Root/Models")
+local radius
+local minRadius
+local maxRadius
 
 local right = Vector3(0, 0, 1)
 local up = Vector3(0, 1, 0)
 
-function OnFingerTap(finger)
+function FingerOperator.OnFingerTap(finger)
     local over = false
     for i = 0, LeanTouch.Fingers.Count - 1 do
         if LeanTouch.Fingers[i].IsOverGui then
@@ -35,13 +32,11 @@ function OnFingerTap(finger)
         return
     end
 
-    RotateCamera()
-
-    --LeanTouch.RotateObject(self.transform, LeanTouch.DragDelta.x * speed, cameraX)
-    --LeanTouch.RotateObject(self.transform, LeanTouch.DragDelta.y * speed, cameraY)
+    FingerOperator.OperateCamera("Rotate")
 end
 
-function OnMultiDrag(drag)
+--双指移动
+function FingerOperator.OnMultiDrag(drag)
     local over = false
     for i = 0, LeanTouch.Fingers.Count - 1 do
         if LeanTouch.Fingers[i].IsOverGui then
@@ -53,10 +48,11 @@ function OnMultiDrag(drag)
         return
     end
     --
-    LeanTouch.MoveObject(self.transform, LeanTouch.DragDelta, camera)
+    --LeanTouch.MoveObject(camera.transform, LeanTouch.DragDelta, nil)
 end
 
-function OnTwistDegrees(degrees)
+--
+function FingerOperator.OnTwistDegrees(degrees)
     local over = false
     for i = 0, LeanTouch.Fingers.Count - 1 do
         if LeanTouch.Fingers[i].IsOverGui then
@@ -70,66 +66,71 @@ function OnTwistDegrees(degrees)
     --
     local targetRadius = radius * 1 / LeanTouch.PinchScale
 
-    if targetRadius < minScale then
-        targetRadius = minScale
-    elseif targetRadius > maxScale then
-        targetRadius = maxScale
+    if targetRadius < minRadius then
+        targetRadius = minRadius
+    elseif targetRadius > maxRadius then
+        targetRadius = maxRadius
     end
 
+    --
     radius = CS.UnityEngine.Mathf.Lerp(radius, targetRadius, 0.5)
 
-    RotateCamera()
+    --
+    FingerOperator.OperateCamera("Scale")
 end
 
 function onenable()
-    print("LeanTouch_Move&Rotate Enable!")
-    LeanTouch.OnFingerDrag = OnFingerTap
-    LeanTouch.OnMultiDrag = OnMultiDrag
+    print("FingerOperator_Camera Enable!")
     --
-    LeanTouch.OnTwistDegrees = OnTwistDegrees
+    LeanTouch.OnFingerDrag = FingerOperator.OnFingerTap
+    LeanTouch.OnMultiDrag = FingerOperator.OnMultiDrag
+    --
+    LeanTouch.OnTwistDegrees = FingerOperator.OnTwistDegrees
 
     --重置方向向量
     right = Vector3(0, 0, 1)
     up = Vector3(0, 1, 0)
 
-    --
-    radius = 20
-
-    RotateCamera()
+    --计算相机与模型的距离
+    radius = Vector3.Distance(self.transform.localPosition, Models.transform.localPosition) * Models.transform.localScale.x
+    minRadius = radius - 20
+    maxRadius = radius + 10
 end
 
-function RotateCamera()
+--
+function FingerOperator.OperateCamera(type)
     --
     local newPosition = self.transform.position
-    local mouseX = Input.GetAxis("Mouse X")
-    local mouseZ = Input.GetAxis("Mouse Y")
 
-    newPosition = newPosition + right * mouseX - up * mouseZ
+    if type == "Rotate" then
+        radius = Vector3.Distance(self.transform.localPosition, Models.transform.localPosition) * Models.transform.localScale.x
+        local mouseX = Input.GetAxis("Mouse X")
+        local mouseZ = Input.GetAxis("Mouse Y")
+        newPosition = newPosition + right * mouseX - up * mouseZ
+    end
+
     newPosition:Normalize()
     right = Vector3.Cross(up, newPosition)
     up = Vector3.Cross(newPosition, right)
     right:Normalize()
     up:Normalize()
     newPosition:Normalize()
-    self.transform.position = newPosition * radius * speed
+    self.transform.position = newPosition * radius
     self.transform:LookAt(Vector3.zero, up)
 end
 
 function start()
-    print("LeanTouch_Move&Rotate Start!")
-end
-
-function update()
-
+    print("FingerOperator_Camera Start!")
 end
 
 function ondisable()
-    print("LeanTouch_Move&Rotate Disable!")
+    print("FingerOperator_Camera Disable!")
     LeanTouch.OnFingerDrag = nil
     LeanTouch.OnMultiDrag = nil
     LeanTouch.OnFingerTap = nil
 end
 
 function ondestroy()
-    print("LeanTouch_Move&Rotate Destroy!")
+    print("FingerOperator_Camera Destroy!")
+    FingerOperator = {}
 end
