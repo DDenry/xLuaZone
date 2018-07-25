@@ -1147,6 +1147,11 @@ function COMMON.RegisterListener()
             Contents.transform.localRotation = defaultViewTransform['rotation']
             Contents.transform.localScale = defaultViewTransform['localScale']
         end
+        --
+        if FingerOperator ~= nil then
+            FingerOperator.enabled = false
+            FingerOperator.enabled = true
+        end
     end)
 
     --动画播放按钮

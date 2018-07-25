@@ -294,7 +294,6 @@ local UI = Root.transform:Find("UI").gameObject
 --Root->UI->Main UI Canvas
 local MainUICanvas = UI.transform:Find("Main UI Canvas").gameObject
 local TitlePanel = MainUICanvas.transform:Find("Title Panel").gameObject
-local PreLoad = MainUICanvas.transform:Find("PreLoad").gameObject
 local H5Load = MainUICanvas.transform:Find("H5Load").gameObject
 local Panel = MainUICanvas.transform:Find("Title Panel/Panel").gameObject
 local MainTitle = MainUICanvas.transform:Find("Title Panel/Main Title").gameObject
@@ -308,6 +307,7 @@ local TitleImage = MainUICanvas.transform:Find("Title Panel").gameObject:GetComp
 
 --Overlay Canvas
 local OverlayCanvas = UI.transform:Find("Overlay Canvas").gameObject
+local PreLoad = OverlayCanvas.transform:Find("PreLoad").gameObject
 local Loading = OverlayCanvas.transform:Find("Loading").gameObject
 local UniWebViewPanelButton = OverlayCanvas.transform:Find("UniWebViewPanel").gameObject:GetComponent("Button")
 
@@ -326,6 +326,7 @@ local CallbackFromWebToUnity
 local CameraBG = Models.transform:Find("Camera BG").gameObject
 local CameraModel = Models.transform:Find("Camera").gameObject
 local CameraAR
+
 --子应用返回到主应用时发送消息
 local XLuaLoader = GameObject.Find("XLuaLoader").gameObject:GetComponent(typeof(CS.XLuaLoader))
 --local PageInfoManager = GameObject.Find("Main Storyboard"):GetComponent(typeof(CS.SubScene.PageInfoManager))
@@ -1420,8 +1421,14 @@ function PROCESS.SwitchScene()
 
         --设置ARCamera渲染层不包括Model
         if CameraAR ~= nil and CameraAR:GetComponent("Camera") ~= nil then
+            --设置AR渲染层不包括Model层(layer 8)
             CameraAR:GetComponent("Camera").cullingMask = (1 << 0)
             LogInfo("Have set ARCamera's cullingMask 'Default'(except Model)")
+
+            --AR相机自动对焦
+            VUFORIA.CameraAutoFocus = GameObject.Find("MainController").transform:Find("LuaController_CameraAutoFocus").gameObject
+
+            VUFORIA.CameraAutoFocus:SetActive(true)
         end
 
         --加载marker.json
@@ -1732,6 +1739,10 @@ function PROCESS.RegisterUIButtonListener()
         if sceneType ~= "OnlyVR" then
             --关闭AR相机
             VuforiaBehaviour.Instance.enabled = false
+
+            --关闭自动对焦
+            VUFORIA.CameraAutoFocus:SetActive(false)
+
             --CS.Vuforia.VideoBackgroundManager.Instance:SetVideoBackgroundEnabled(false)
             --CameraAR:SetActive(false)
 
@@ -1772,6 +1783,10 @@ function PROCESS.RegisterUIButtonListener()
 
         --打开AR相机
         VuforiaBehaviour.Instance.enabled = true
+
+        --打开自动对焦
+        VUFORIA.CameraAutoFocus:SetActive(true)
+
         --Vuforia.CameraDevice.Instance:Start()
         --CameraAR:SetActive(true)
 
@@ -1982,11 +1997,15 @@ function PROCESS.StartScanModelScene()
                     if defaultView == "Real" then
                         --打开AR相机
                         VuforiaBehaviour.Instance.enabled = true
+                        --打开自动对焦
+                        VUFORIA.CameraAutoFocus:SetActive(true)
                         --关闭虚景相机
                         CameraBG:SetActive(false)
                     else
                         --关闭AR相机
                         VuforiaBehaviour.Instance.enabled = false
+                        --关闭自动对焦
+                        VUFORIA.CameraAutoFocus:SetActive(false)
                         --打开虚景相机
                         CameraBG:SetActive(true)
                     end
@@ -1998,6 +2017,8 @@ function PROCESS.StartScanModelScene()
 
                     --打开AR相机
                     VuforiaBehaviour.Instance.enabled = true
+                    --打开自动对焦
+                    VUFORIA.CameraAutoFocus:SetActive(true)
                     --关闭虚景相机
                     CameraBG:SetActive(false)
                 end
@@ -2007,12 +2028,16 @@ function PROCESS.StartScanModelScene()
                 if defaultView == "Real" then
                     --
                     VuforiaBehaviour.Instance.enabled = true
+                    --打开自动对焦
+                    VUFORIA.CameraAutoFocus:SetActive(true)
                     --
                     CameraBG:SetActive(false)
                     --显示虚景
                 else
                     --
                     VuforiaBehaviour.Instance.enabled = false
+                    --关闭自动对焦
+                    VUFORIA.CameraAutoFocus:SetActive(false)
                     --
                     CameraBG:SetActive(true)
                 end
@@ -2056,8 +2081,8 @@ function CALLBACK.ModelLoaded(...)
             end
         end
 
-        --打开SubController.lua
-        SubController:SetActive(true)
+        --LuaController_Tool.lua
+        LuaController_Tool:SetActive(true)
     elseif trackerType == "Always" and loadedType == 0 then
         --返回键直接退出应用
         backType = -1
@@ -2126,8 +2151,8 @@ function CALLBACK.ModelUnloaded()
     --关闭模型缩放手势操作
     CameraModel:GetComponent(typeof(CS.XLuaBehaviour)).enabled = false
 
-    --关闭SubController.lua
-    SubController:SetActive(false)
+    --LuaController_Tool.lua
+    LuaController_Tool:SetActive(false)
 
     --是否已加载模型置为否
     loadedModel = false

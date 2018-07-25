@@ -10,6 +10,7 @@ local Input = CS.UnityEngine.Input
 local FingerOperator = {}
 
 local Models = GameObject.Find("Root/Models")
+local oriRadius
 local radius
 local minRadius
 local maxRadius
@@ -81,6 +82,9 @@ end
 
 function onenable()
     print("FingerOperator_Camera Enable!")
+    --回收垃圾
+    collectgarbage("collect")
+
     --
     LeanTouch.OnFingerDrag = FingerOperator.OnFingerTap
     LeanTouch.OnMultiDrag = FingerOperator.OnMultiDrag
@@ -93,8 +97,10 @@ function onenable()
 
     --计算相机与模型的距离
     radius = Vector3.Distance(self.transform.localPosition, Models.transform.localPosition) * Models.transform.localScale.x
-    minRadius = radius - 20
-    maxRadius = radius + 10
+    oriRadius = radius
+
+    minRadius = radius - 50
+    maxRadius = radius + 20
 end
 
 --
@@ -102,11 +108,14 @@ function FingerOperator.OperateCamera(type)
     --
     local newPosition = self.transform.position
 
+    --旋转模型
     if type == "Rotate" then
         radius = Vector3.Distance(self.transform.localPosition, Models.transform.localPosition) * Models.transform.localScale.x
         local mouseX = Input.GetAxis("Mouse X")
         local mouseZ = Input.GetAxis("Mouse Y")
-        newPosition = newPosition + right * mouseX - up * mouseZ
+
+        --距离缩进后手势灵敏度
+        newPosition = (newPosition + right * mouseX - up * mouseZ) * (CS.System.Math.Pow(radius, 3) / CS.System.Math.Pow(oriRadius, 3))
     end
 
     newPosition:Normalize()
@@ -128,9 +137,14 @@ function ondisable()
     LeanTouch.OnFingerDrag = nil
     LeanTouch.OnMultiDrag = nil
     LeanTouch.OnFingerTap = nil
+
+    --回收垃圾
+    collectgarbage("collect")
 end
 
 function ondestroy()
     print("FingerOperator_Camera Destroy!")
     FingerOperator = {}
+    --回收垃圾
+    collectgarbage("collect")
 end
