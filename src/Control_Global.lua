@@ -223,13 +223,21 @@ function PROCESS.Execute()
 
                 --执行
                 for i, case in pairs(cases) do
-                    cases[i]()
+                    assert(coroutine.resume(coroutine.create(function()
+                        --每相隔1frame执行
+                        yield_return(1)
+                        --
+                        cases[i]()
+                    end)))
                 end
             else
                 --
                 PROCESS.ListenProcess({ _task.name }, "task " .. _task.id, "ADD")
                 --
                 assert(coroutine.resume(coroutine.create(function()
+                    --每相隔1frame执行
+                    yield_return(1)
+                    --
                     _task.runnable()
                 end)))
             end
@@ -1409,18 +1417,20 @@ function PROCESS.SwitchScene()
                 end
                 --
                 if Vuforia.VuforiaARController.Instance.HasStarted then
-
                 end
             end)
+
             --
             CameraAR = GameObject.Instantiate(Resources.Load("prefabs/ARCamera"))
             CameraAR.name = "ARCamera"
         else
+            --Vuforia.CameraDevice.Instance:Init()
             CameraAR = VuforiaBehaviour.Instance:GetComponent("Camera").gameObject
         end
 
         --设置ARCamera渲染层不包括Model
         if CameraAR ~= nil and CameraAR:GetComponent("Camera") ~= nil then
+
             --设置AR渲染层不包括Model层(layer 8)
             CameraAR:GetComponent("Camera").cullingMask = (1 << 0)
             LogInfo("Have set ARCamera's cullingMask 'Default'(except Model)")
@@ -2142,14 +2152,8 @@ function CALLBACK.ModelUnloaded()
     --隐藏模型相机
     CameraModel:SetActive(false)
 
-    --关闭移动、旋转手势操作
-    --Contents:GetComponent(typeof(CS.XLuaBehaviour)).enabled = false
-
-    --关闭移动、旋转手势操作
-    CameraModel:GetComponent(typeof(CS.XLuaBehaviour)).enabled = false
-
-    --关闭模型缩放手势操作
-    CameraModel:GetComponent(typeof(CS.XLuaBehaviour)).enabled = false
+    --关闭手势操作
+    Contents:GetComponent(typeof(CS.XLuaBehaviour)).enabled = false
 
     --LuaController_Tool.lua
     LuaController_Tool:SetActive(false)

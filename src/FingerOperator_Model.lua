@@ -9,6 +9,7 @@ local GameObject = CS.UnityEngine.GameObject
 local cameraX = GameObject.Find("Root/Models").transform:Find("CameraX").gameObject:GetComponent("Camera")
 local cameraY = GameObject.Find("Root/Models").transform:Find("CameraY").gameObject:GetComponent("Camera")
 local camera = GameObject.Find("Root/Models").transform:Find("Camera/Camera").gameObject:GetComponent("Camera")
+
 local speed = 0.1
 
 local minScale = 0.1
@@ -17,6 +18,7 @@ local maxScale = 20
 local FingerOperator = {}
 
 function FingerOperator.OnTwistDegrees(degrees)
+
     local over = false
     for i = 0, LeanTouch.Fingers.Count - 1 do
         if LeanTouch.Fingers[i].IsOverGui then
@@ -39,6 +41,7 @@ function FingerOperator.OnTwistDegrees(degrees)
 end
 
 function FingerOperator.OnFingerTap(finger)
+
     local over = false
     for i = 0, LeanTouch.Fingers.Count - 1 do
         if LeanTouch.Fingers[i].IsOverGui then
@@ -76,7 +79,7 @@ function onenable()
     print("FingerOperator_Model Enable!")
     LeanTouch.OnFingerDrag = FingerOperator.OnFingerTap
     LeanTouch.OnMultiDrag = FingerOperator.OnMultiDrag
-    LeanTouch.OnTwistDegrees = FingerOperator.OnTwistDegrees
+    --LeanTouch.OnTwistDegrees = FingerOperator.OnTwistDegrees
 end
 
 function start()

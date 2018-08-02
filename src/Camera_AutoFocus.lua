@@ -14,38 +14,41 @@ function onenable()
     --回收垃圾
     collectgarbage("collect")
 
-    --
-    COROUTINE_CAMERA_AUTOFOCUS = coroutine.create(function(state)
-        while state do
-            print("The device is trying 2 focus!")
-            --设置不同模式进行自动对焦
-            if CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_NORMAL) then
-            elseif CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_TRIGGERAUTO) then
-            elseif CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_CONTINUOUSAUTO) then
-            elseif CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_INFINITY) then
-            elseif CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_MACRO) then
-            else
-                print("The device cannot focus!")
-            end
-            yield_return(CS.UnityEngine.WaitForSeconds(1.0))
+    --判断是否为子应用单独运行状态
+    if _Global:GetData("RunningType") ~= nil and _Global:GetData("RunningType") == "Single" then
+        --
+        COROUTINE_CAMERA_AUTOFOCUS = coroutine.create(function(state)
+            while state do
+                print("The device is trying 2 focus!")
+                --设置不同模式进行自动对焦
+                if CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_NORMAL) then
+                elseif CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_TRIGGERAUTO) then
+                elseif CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_CONTINUOUSAUTO) then
+                elseif CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_INFINITY) then
+                elseif CameraDevice.Instance:SetFocusMode(CameraDevice.FocusMode.FOCUS_MODE_MACRO) then
+                else
+                    print("The device cannot focus!")
+                end
+                yield_return(CS.UnityEngine.WaitForSeconds(1.0))
 
-            --获取传值
-            state = coroutine.yield()
-        end
-    end)
-
-    assert(coroutine.resume(coroutine.create(function()
-        repeat
-            if coroutine.status(COROUTINE_CAMERA_AUTOFOCUS) == "suspended" then
-                assert(coroutine.resume(COROUTINE_CAMERA_AUTOFOCUS, true))
-                yield_return(CS.UnityEngine.WaitForSeconds(3.0))
+                --获取传值
+                state = coroutine.yield()
             end
-        until COROUTINE_CAMERA_AUTOFOCUS == nil
-    end)))
+        end)
+
+        assert(coroutine.resume(coroutine.create(function()
+            repeat
+                if coroutine.status(COROUTINE_CAMERA_AUTOFOCUS) == "suspended" then
+                    assert(coroutine.resume(COROUTINE_CAMERA_AUTOFOCUS, true))
+                    yield_return(CS.UnityEngine.WaitForSeconds(3.0))
+                end
+            until COROUTINE_CAMERA_AUTOFOCUS == nil
+        end)))
+    end
 end
 
 function start()
-    --CS.Vuforia.CameraDeviceCameraDevice.Instance.GetCameraFieldOfViewRads
+    --
 end
 
 function update()

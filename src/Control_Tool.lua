@@ -61,7 +61,8 @@ local Coroutine_Cross
 local CameraBG = GameObject.Find("Root/Models").transform:Find("Camera BG").gameObject
 local CameraModel = GameObject.Find("Root/Models").transform:Find("Camera").gameObject
 
-local FingerOperator
+local FingerOperator_Model
+local FingerOperator_Camera
 
 --
 --场景中储存shader的对象OnePlaneBSP_pre
@@ -378,12 +379,12 @@ function onenable()
     end
 
     --初始化数据table
-    InitDataTable()
+    PROCESS.InitDataTable()
 
     --模型
     OriObject = GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll")
 
-    --
+    --遍历ObjectId
     StudioData.FindStudioObjectData()
 
     --加载标注点
@@ -431,10 +432,13 @@ function StudioData.FindStudioObjectData()
                 --视口配置信息存在
                 haveViewPort = true
 
-                --保存场景视口初始信息
-                defaultViewTransform['position'] = objects[i].gameObject.transform.localPosition
-                defaultViewTransform['rotation'] = objects[i].gameObject.transform.localRotation
-                defaultViewTransform['localScale'] = objects[i].gameObject.transform.localScale
+                --存在视口文件，则读取(仅读取旋转信息)
+                defaultViewTransform['localRotation'] = {
+                    x = -objects[i].gameObject.transform.localRotation.x,
+                    y = -objects[i].gameObject.transform.localRotation.y,
+                    z = -objects[i].gameObject.transform.localRotation.z,
+                    w = objects[i].gameObject.transform.localRotation.w
+                }
             end
 
             --将id和gameObject对应
@@ -590,6 +594,7 @@ function StudioData.LoadPointData()
     --数据加载完毕
     StudioData.DataLoadedCompleted()
 end
+
 --
 function AutoSlide(Prefab_Point_Tmp)
     if Prefab_Point_Tmp ~= nil then
@@ -660,7 +665,7 @@ function CALLBACK.OnPageErrorReceived(content)
     print("errorMessage:" .. errorMessage)
 end
 
---是否开始Aimator动画
+--是否开始Animator动画
 function StudioData.ShowAnimatorFunction(state)
     --
     animation.enabled = state
@@ -826,37 +831,21 @@ function StudioData.DataLoadedCompleted()
 
     print("The scene " .. (haveViewPort and "have" or "don't have") .. " view port!")
 
-    --
-    if haveViewPort then
-        --操作相机脚本
-        FingerOperator = CameraModel:GetComponent(typeof(CS.XLuaBehaviour))
-    else
-        --操作模型脚本
-        FingerOperator = Contents:GetComponent(typeof(CS.XLuaBehaviour))
-    end
-
-    --相机复位
-    CameraModel.gameObject.transform.position = defaultViewTransform['position']
-    CameraModel.gameObject.transform.rotation = defaultViewTransform['rotation']
-    CameraModel.gameObject.transform.localScale = defaultViewTransform['localScale']
-
-    --设置场景状态为工具第一步状态
-    CS.SceneStudio.TimelinesManager.Instance.Timelines[0].Recorder:Apply()
+    --获取到手势操作实例
+    FingerOperator_Model = Contents.transform:GetComponent(typeof(CS.XLuaBehaviour))
+    FingerOperator_Camera = CameraModel:GetComponent(typeof(CS.XLuaBehaviour))
 
     --设置菜单模式
     PROCESS.SetSceneTool()
 
-    --将模型缩放至0.05
+    --模型调整为预设角度
+    Contents.transform.localRotation = defaultViewTransform['localRotation']
+
+    --将模型缩放至0.05(为适配工具校验大小为200)
     Models.transform.localScale = Vector3(0.05, 0.05, 0.05)
 
     --开启协程
     assert(coroutine.resume(coroutine.create(function()
-
-        --初始化相机位置
-        ButtonReset0.onClick:Invoke()
-
-        --开启手势操作
-        FingerOperator.enabled = true
 
         --开启模型相机
         CameraModel:SetActive(true)
@@ -866,6 +855,9 @@ function StudioData.DataLoadedCompleted()
         yield_return(CS.UnityEngine.WaitForSeconds(1.0))
 
         print("Camera's animation played completed!")
+
+        --开启手势操作
+        FingerOperator_Model.enabled = true
 
         --只有AR&VR模式下才有该功能
         if sceneType == "AR&VR" then
@@ -1004,12 +996,12 @@ end
 	*点击切面功能以后再复制相应模型
 	]]
 --
-function InitDataTable()
+function PROCESS.InitDataTable()
 
-    --初始化相机transform
+    --初始化
     defaultViewTransform = {
-        position = Vector3.zero,
-        rotation = { x = 0, y = 0, z = 0, w = 1 },
+        localPosition = Vector3.zero,
+        localRotation = Quaternion.Euler(Vector3.zero),
         localScale = Vector3.one
     }
 
@@ -1035,8 +1027,23 @@ function CallBack_SelfOwnedAnimationStep()
     end
 end
 
---
+--标识播放步骤
 local play_step = -1
+
+--恢复模型至初始加载状态
+function PROCESS.ResetSceneState()
+    --相机距离复位
+    CameraModel.transform.localScale = Vector3.one
+
+    --模型transform
+    Contents.transform.localPosition = defaultViewTransform['localPosition']
+    Contents.transform.localRotation = defaultViewTransform['localRotation']
+    Contents.transform.localScale = defaultViewTransform['localScale']
+
+    --模型动画状态
+    --设置场景状态为工具第一步状态
+    CS.SceneStudio.TimelinesManager.Instance.Timelines[0].Recorder:Apply()
+end
 
 --添加监听
 function COMMON.RegisterListener()
@@ -1137,21 +1144,9 @@ function COMMON.RegisterListener()
         ButtonResetImage.color = pointUnselectedColor
         ButtonResetText.color = pointUnselectedColor
 
-        --
-        if haveViewPort then
-            CameraModel.transform.localPosition = defaultViewTransform['position']
-            CameraModel.transform.localRotation = defaultViewTransform['rotation']
-            CameraModel.transform.localScale = defaultViewTransform['localScale']
-        else
-            Contents.transform.localPosition = defaultViewTransform['position']
-            Contents.transform.localRotation = defaultViewTransform['rotation']
-            Contents.transform.localScale = defaultViewTransform['localScale']
-        end
-        --
-        if FingerOperator ~= nil then
-            FingerOperator.enabled = false
-            FingerOperator.enabled = true
-        end
+        --场景模型以及视口复位
+        PROCESS.ResetSceneState()
+
     end)
 
     --动画播放按钮
@@ -1176,38 +1171,38 @@ function COMMON.RegisterListener()
 
     --切面按钮监听
     Section1On.onClick:AddListener(function()
-        ControlMenu(Section1On, Section1Off)
+        CROSS.ControlMenu(Section1On, Section1Off)
     end)
     Section1Off.onClick:AddListener(function()
-        ControlMenu(Section1Off, Section1On, 1)
+        CROSS.ControlMenu(Section1Off, Section1On, 1)
     end)
 
     Section2On.onClick:AddListener(function()
-        ControlMenu(Section2On, Section2Off)
+        CROSS.ControlMenu(Section2On, Section2Off)
     end)
     Section2Off.onClick:AddListener(function()
-        ControlMenu(Section2Off, Section2On, 2)
+        CROSS.ControlMenu(Section2Off, Section2On, 2)
     end)
 
     Section3On.onClick:AddListener(function()
-        ControlMenu(Section3On, Section3Off)
+        CROSS.ControlMenu(Section3On, Section3Off)
     end)
     Section3Off.onClick:AddListener(function()
-        ControlMenu(Section3Off, Section3On, 3)
+        CROSS.ControlMenu(Section3Off, Section3On, 3)
     end)
 
     --菜单按钮监听
     --Pos
     PosYButton.onClick:AddListener(function()
-        ClickMenuButton(PosYButtonText, PosPanelImage, "Transform", QuadArr[currentSection][1].z)
+        CROSS.ClickMenuButton(PosYButtonText, PosPanelImage, "Transform", QuadArr[currentSection][1].z)
     end)
 
     --Rot
     RotXButton.onClick:AddListener(function()
-        ClickMenuButton(RotXButtonText, RotPanelImage, "RotX", QuadArr[currentSection][2].x)
+        CROSS.ClickMenuButton(RotXButtonText, RotPanelImage, "RotX", QuadArr[currentSection][2].x)
     end)
     RotZButton.onClick:AddListener(function()
-        ClickMenuButton(RotZButtonText, RotPanelImage, "RotZ", QuadArr[currentSection][2].y)
+        CROSS.ClickMenuButton(RotZButtonText, RotPanelImage, "RotZ", QuadArr[currentSection][2].y)
     end)
 
     --Slider微调按钮监听
@@ -1637,7 +1632,7 @@ end
 	*type 标识是否显示操作UI
 
 ]]
-function ControlMenu(selfButton, otherButton, type)
+function CROSS.ControlMenu(selfButton, otherButton, type)
     --显示OperatePanel
     if (type ~= nil) then
         --重置非操作切面按钮
@@ -1681,7 +1676,7 @@ end
 	* 声明所在的轴方向
 	*value Pos或者Rot的值
 ]]
-function ClickMenuButton(text, image, signal, value)
+function CROSS.ClickMenuButton(text, image, signal, value)
     --设置当前操作标识
     currentSignal = signal
 
@@ -2305,7 +2300,8 @@ local substitute
 --
 function CROSS.Prepare()
     print("Replacing Cross Shader")
-    --
+
+    --生成substitute,并与OriObject保持相同transform
     if OriObject.transform.parent:Find("Substitute") == nil then
         substitute = GameObject("Substitute")
         substitute.transform:SetParent(OriObject.transform.parent)
@@ -2511,6 +2507,8 @@ function ondisable()
     --复位按钮Invoke
     ButtonReset0.onClick:Invoke()
 
+    Contents.transform.localRotation = Quaternion.Euler(Vector3.zero)
+
     --
     SwitchButton.gameObject:SetActive(false)
 
@@ -2590,7 +2588,7 @@ function ondisable()
     end
 
     --关闭手势操作
-    FingerOperator.enabled = false
+    FingerOperator_Model.enabled = false
 
     --标识爆炸和拆解为false
     defaultViewTransform = {}

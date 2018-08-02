@@ -1,61 +1,31 @@
 ---
 --- Created by DDenry.
---- DateTime: 2017/11/7 15:40
+--- DateTime: 2017/8/31 13:02
 ---
 local Vector3 = CS.UnityEngine.Vector3
 local LeanTouch = CS.Lean.LeanTouch
-local GameObject = CS.UnityEngine.GameObject
-local Input = CS.UnityEngine.Input
+local minScale = 0.1
+local maxScale = 2
+local _modelCamera = CS.UnityEngine.GameObject.Find("Root/Models/Camera/Camera"):GetComponent("Camera")
+local _cameraFar = _modelCamera.farClipPlane
 
-local FingerOperator = {}
+function onenable()
+    print("LeanTouch_Scale Enable!")
 
-local Models = GameObject.Find("Root/Models")
-local oriRadius
-local radius
-local minRadius
-local maxRadius
-
-local right = Vector3(0, 0, 1)
-local up = Vector3(0, 1, 0)
-
-function FingerOperator.OnFingerTap(finger)
-    local over = false
-    for i = 0, LeanTouch.Fingers.Count - 1 do
-        if LeanTouch.Fingers[i].IsOverGui then
-            over = true
-            break
-        end
-    end
-    if over then
-        return
-    end
-    if LeanTouch.Fingers.Count > 1 then
-        return
+    if not(_Global:GetData("minScale") == nil) then
+        minScale = tonumber(_Global:GetData("minScale"))
+        maxScale = tonumber(_Global:GetData("maxScale"))
+        print("Model_MinScale:" .. minScale)
+        print("Model_MaxScale:" .. maxScale)
     end
 
-    FingerOperator.OperateCamera("Rotate")
-end
-
---双指移动
-function FingerOperator.OnMultiDrag(drag)
-    local over = false
-    for i = 0, LeanTouch.Fingers.Count - 1 do
-        if LeanTouch.Fingers[i].IsOverGui then
-            over = true
-            break
-        end
-    end
-    if over then
-        return
-    end
-    --
-    --LeanTouch.MoveObject(camera.transform, LeanTouch.DragDelta, nil)
+    LeanTouch.OnTwistDegrees = OnTwistDegrees
 end
 
 --
-function FingerOperator.OnTwistDegrees(degrees)
+function OnTwistDegrees(degrees)
     local over = false
-    for i = 0, LeanTouch.Fingers.Count - 1 do
+    for i = 0,LeanTouch.Fingers.Count-1 do
         if LeanTouch.Fingers[i].IsOverGui then
             over = true;
             break
@@ -65,86 +35,25 @@ function FingerOperator.OnTwistDegrees(degrees)
         return
     end
     --
-    local targetRadius = radius * 1 / LeanTouch.PinchScale
+    LeanTouch.ScaleObject(self.transform,1/LeanTouch.PinchScale)
 
-    if targetRadius < minRadius then
-        targetRadius = minRadius
-    elseif targetRadius > maxRadius then
-        targetRadius = maxRadius
+    if(self.transform.localScale.x <= minScale)then
+        self.transform.localScale = Vector3(minScale,minScale,minScale)
     end
-
-    --
-    radius = CS.UnityEngine.Mathf.Lerp(radius, targetRadius, 0.5)
-
-    --
-    FingerOperator.OperateCamera("Scale")
-end
-
-function onenable()
-    print("FingerOperator_Camera Enable!")
-    --回收垃圾
-    collectgarbage("collect")
-
-    --
-    LeanTouch.OnFingerDrag = FingerOperator.OnFingerTap
-    LeanTouch.OnMultiDrag = FingerOperator.OnMultiDrag
-    --
-    LeanTouch.OnTwistDegrees = FingerOperator.OnTwistDegrees
-
-    --重置方向向量
-    right = Vector3(0, 0, 1)
-    up = Vector3(0, 1, 0)
-
-    --计算相机与模型的距离
-    radius = Vector3.Distance(self.transform.localPosition, Models.transform.localPosition) * Models.transform.localScale.x
-    oriRadius = radius
-
-    minRadius = radius - 50
-    maxRadius = radius + 20
-end
-
---
-function FingerOperator.OperateCamera(type)
-    --
-    local newPosition = self.transform.position
-
-    --旋转模型
-    if type == "Rotate" then
-        radius = Vector3.Distance(self.transform.localPosition, Models.transform.localPosition) * Models.transform.localScale.x
-        local mouseX = Input.GetAxis("Mouse X")
-        local mouseZ = Input.GetAxis("Mouse Y")
-
-        --距离缩进后手势灵敏度
-        newPosition = (newPosition + right * mouseX - up * mouseZ) * (CS.System.Math.Pow(radius, 3) / CS.System.Math.Pow(oriRadius, 3))
+    if(self.transform.localScale.x >= maxScale)then
+        self.transform.localScale = Vector3(maxScale,maxScale,maxScale)
     end
-
-    newPosition:Normalize()
-    right = Vector3.Cross(up, newPosition)
-    up = Vector3.Cross(newPosition, right)
-    right:Normalize()
-    up:Normalize()
-    newPosition:Normalize()
-    self.transform.position = newPosition * radius
-    self.transform:LookAt(Vector3.zero, up)
 end
 
 function start()
-    print("FingerOperator_Camera Start!")
+    print("LeanTouch_Scale Start!")
 end
 
 function ondisable()
-    print("FingerOperator_Camera Disable!")
-    LeanTouch.OnFingerDrag = nil
-    LeanTouch.OnMultiDrag = nil
-    LeanTouch.OnFingerTap = nil
-
-    --回收垃圾
-    collectgarbage("collect")
+    print("LeanTouch_Scale Disable!")
+    LeanTouch.OnTwistDegrees = nil
 end
 
 function ondestroy()
-    print("FingerOperator_Camera Destroy!")
-    FingerOperator = {}
-    --回收垃圾
-    collectgarbage("collect")
+    print("LeanTouch_Scale Destroy!")
 end
