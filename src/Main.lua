@@ -495,8 +495,8 @@ function start()
     --创建应用Task并执行
     Task                         :new("NecessaryConfig", {
         function()
-            --判断UI显示方式(屏幕转向)
-            COMMON.Function2XPCall(PROCESS.SetUIOrientation)
+            --判断UI显示方式（适配）
+            COMMON.Function2XPCall(PROCESS.SetUIAdapter)
 
             --判断平台
             COMMON.Function2XPCall(PROCESS.FindVersionType)
@@ -765,24 +765,49 @@ function COMMON.UnregisterListener(...)
 end
 
 --判断UI显示方式(屏幕转向)
-function PROCESS.SetUIOrientation()
+function PROCESS.SetUIAdapter()
     --判断当前屏幕转向
     LogInfo("Screen.orientation", Screen.orientation)
 
-    --屏幕方向竖直
-    if Screen.orientation == CS.UnityEngine.ScreenOrientation.Portrait then
-        --TODO:显示竖直UI
-
-        --屏幕方向水平
-    elseif Screen.orientation == CS.UnityEngine.ScreenOrientation.LandscapeLeft or Screen.orientation == CS.UnityEngine.ScreenOrientation.LandscapeRight then
-        --TODO:显示水平UI
-
-    end
-
-    --单独运行时强制为横屏显示
+    --单独运行时设置为自动旋转
     if isSingleType then
-        Screen.orientation = CS.UnityEngine.ScreenOrientation.LandscapeLeft
+        Screen.orientation = CS.UnityEngine.ScreenOrientation.AutoRotation
+        Screen.autorotateToLandscapeLeft = true
+        Screen.autorotateToLandscapeRight = true
     end
+
+    --TODO:适配分辨率
+    if screenHeight < screenWidth then
+        screenHeight = screenHeight + screenWidth
+        screenWidth = screenHeight - screenWidth
+        screenHeight = screenHeight - screenWidth
+    end
+
+    --屏幕比大于2.0
+    if screenHeight / screenWidth >= 1.8 then
+        LogInfo("ScreenAdapter", "Value of height/width is " .. screenHeight / screenWidth)
+        --设置默认偏移量
+        local offset = 50
+        --TODO:添加要适配的UI组件
+        local Viewport = PageList.transform:Find("TileView/ScrollRect/Viewport").gameObject
+        local UIAdapter = {
+            PreLoad,Viewport,
+        }
+        --TODO:判断当前UI扩展或者偏移
+        for i, view in pairs(UIAdapter) do
+            if view.name == "PreLoad" then
+                view.transform:Find("Text"):GetComponent("RectTransform").offsetMin = CS.UnityEngine.Vector2(offset, 0)
+                view.transform:Find("Text"):GetComponent("RectTransform").offsetMax = CS.UnityEngine.Vector2(-offset, 0)
+            elseif view.name == "Viewport" then
+                view:GetComponent("RectTransform").offsetMin = CS.UnityEngine.Vector2(offset, 0)
+                view:GetComponent("RectTransform").offsetMax = CS.UnityEngine.Vector2(-offset, 0)
+            elseif view.name == "" then
+            elseif view.name == "" then
+            elseif view.name == "" then
+            end
+        end
+    end
+
 end
 
 --根据所得路径判断平台

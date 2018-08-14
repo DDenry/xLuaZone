@@ -669,6 +669,7 @@ end
 function StudioData.ShowAnimatorFunction(state)
     --
     animation.enabled = state
+
     --回到动画初始帧位置
     animation:Stop()
 
@@ -815,7 +816,7 @@ function PROCESS.SetSceneTool()
     PanelCross:SetActive(haveCross)
     PanelCrossSubstitle:SetActive(not haveCross)
 
-    --
+    --如果存在自带动画
     if haveSelfOwnedAnimation then
         animation = OriObject:GetComponentInChildren(typeof(CS.UnityEngine.Animation))
         --设置Animation模式为Loop
@@ -1875,7 +1876,7 @@ function NotifyQuadTransform()
     --
     if currentSection == 1 then
         if currentSignal == "Transform" then
-            Quad1.transform.localPosition = Quad1.transform.localPosition + Quad1.transform.forward * tonumber(sliderPosValue)
+            Quad1.transform:Translate(Vector3.forward * tonumber(sliderPosValue) * 0.05, CS.UnityEngine.Space.Self)
         elseif currentSignal == "RotX" then
             --Quad1.transform.localRotation = Quaternion.Euler(Slider.value, 0, 0)
             Quad1.transform:Rotate(tonumber(sliderPosValue), 0, 0)
@@ -1888,7 +1889,7 @@ function NotifyQuadTransform()
 
         --
         if currentSignal == "Transform" then
-            Quad2.transform.localPosition = Quad2.transform.localPosition - Quad2.transform.up * tonumber(sliderPosValue)
+            Quad2.transform:Translate(Vector3.forward * tonumber(-sliderPosValue) * 0.05, CS.UnityEngine.Space.Self)
         end
         --
         if currentSignal == "RotX" then
@@ -1902,7 +1903,7 @@ function NotifyQuadTransform()
     elseif currentSection == 3 then
 
         if currentSignal == "Transform" then
-            Quad3.transform.localPosition = Quad3.transform.localPosition - Quad3.transform.right * tonumber(sliderPosValue)
+            Quad3.transform:Translate(Vector3.forward * tonumber(sliderPosValue) * 0.05, CS.UnityEngine.Space.Self)
         end
         --
         if currentSignal == "RotX" then

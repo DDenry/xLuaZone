@@ -26,6 +26,7 @@ function start()
 
         --去除Camera上的AudioListener
         local audioListeners = GameObject.FindObjectsOfType(typeof(CS.UnityEngine.AudioListener))
+
         --如果场景中存在两个及以上AudioListener
         if audioListeners.Length > 1 then
             for i = 0, audioListeners.Length - 1 do
@@ -49,6 +50,8 @@ function start()
                     break
                 end
             end
+        else
+            print("Scene named 'scene' no found! ")
         end
 
     end)))
