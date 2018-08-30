@@ -10,13 +10,32 @@ local yield_return = (require 'cs_coroutine').yield_return
 --
 function start()
     assert(coroutine.resume(coroutine.create(function()
+        --[[
+                local webRequest = CS.UnityEngine.Networking.UnityWebRequest.Get("http://gzdl.chu-jiao.com/Loading%3F.jpg?¿¿¿" .. math.random())
+
+                yield_return(webRequest:Send())
+
+                --
+                if webRequest.error == nil then
+                    local texture2D = CS.UnityEngine.Texture2D(80, 80, CS.UnityEngine.TextureFormat.PVRTC_RGBA4, false, true)
+                    if texture2D:LoadImage(webRequest.downloadHandler.data) then
+                        local rawImage = GameObject.Find("Root/UI/Overlay Canvas/PreLoad"):GetComponent("RawImage")
+                        rawImage.texture = texture2D
+                        --隐藏文字信息
+                        rawImage.transform:Find("Text"):GetComponent("Text").text = ""
+                    end
+                else
+                    print("Error", webRequest.error)
+                end
+                ]]
+
         --设置Loading图案
         local www = CS.UnityEngine.WWW("http://gzdl.chu-jiao.com/Loading.jpg?¿¿¿" .. math.random())
 
         yield_return(www)
 
         if www.error == nil then
-            local rawImage = GameObject.Find("Root/UI/Main UI Canvas/PreLoad"):GetComponent("RawImage")
+            local rawImage = GameObject.Find("Root/UI/Overlay Canvas/PreLoad"):GetComponent("RawImage")
             rawImage.texture = www.texture
             --隐藏文字信息
             rawImage.transform:Find("Text"):GetComponent("Text").text = ""

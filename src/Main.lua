@@ -2297,7 +2297,7 @@ function PROCESS.ControlBack()
     if backType ~= -1 then
 
         --隐藏多模型列表按钮
-        GameObject.Find("Root/UI/Main UI Canvas/Title Panel").transform:Find("UpperRight/MulModelList Button").gameObject:GetComponent("Button").gameObject:SetActive(false)
+        GameObject.Find("Root/UI/Main UI Canvas/Title Panel").transform:Find("UpperRight/MulModelListButton").gameObject:GetComponent("Button").gameObject:SetActive(false)
 
         --重置模型scale
         GameObject.Find("Root/Models").transform.localScale = Vector3.one

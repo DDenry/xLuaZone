@@ -12,6 +12,7 @@ local COMMON = {}
 local PROCESS = {}
 local CALLBACK = {}
 local StudioData = {}
+local MENU = {}
 local CROSS = {}
 
 local GameObject = CS.UnityEngine.GameObject
@@ -35,7 +36,8 @@ local DOTween = CS.DG.Tweening.ShortcutExtensions
 --
 local UI = GameObject.Find("Root/UI")
 local toolCanvas = GameObject.Find("Root/UI/Main UI Canvas/Tools Panel")
-local toolMenu = toolCanvas.transform:Find("Tool Menu").gameObject
+local ToolMenu = toolCanvas.transform:Find("ToolMenu").gameObject
+local toolMenu = ToolMenu.transform:Find("Tool Menu").gameObject
 local MainUICanvas = GameObject.Find("Root/UI/Main UI Canvas")
 local Panel = MainUICanvas.transform:Find("Title Panel/Panel").gameObject
 local MulModelList = MainUICanvas.transform:Find("MulModelList").gameObject
@@ -79,27 +81,55 @@ local ButtonBoom = PanelBoom.transform:Find("ButtonBoom").gameObject:GetComponen
 local ButtonBoomImage = PanelBoom.transform:Find("ButtonBoom/Icon").gameObject:GetComponent("Image")
 local ButtonBoomText = PanelBoom.transform:Find("ButtonBoom/Text").gameObject:GetComponent("Text")
 --爆炸替补
-local PanelBoomSubstitle = toolMenu.transform:Find("PanelGroup/PanelBoomSubstitle").gameObject
+local PanelBoomSubstitute = toolMenu.transform:Find("PanelGroup/PanelBoomSubstitute").gameObject
 --切面按钮
 local PanelCross = toolMenu.transform:Find("PanelGroup/PanelCross").gameObject
 local ButtonCross = PanelCross.transform:Find("ButtonCross").gameObject:GetComponent("Button")
 local ButtonCrossImage = PanelCross.transform:Find("ButtonCross/Icon").gameObject:GetComponent("Image")
 local ButtonCrossText = PanelCross.transform:Find("ButtonCross/Text").gameObject:GetComponent("Text")
+--
+local CrossOperator = PanelCross.transform:Find("CrossOperator").gameObject
+local FunctionChoose = CrossOperator.transform:Find("SectionChoose/FunctionChoose").gameObject
+
+--
+local Section1On = CrossOperator.transform:Find("SectionChoose/BottomButton/Section1/Section1On"):GetComponent("Button")
+local Section1Off = CrossOperator.transform:Find("SectionChoose/BottomButton/Section1/Section1Off"):GetComponent("Button")
+local Section2On = CrossOperator.transform:Find("SectionChoose/BottomButton/Section2/Section2On"):GetComponent("Button")
+local Section2Off = CrossOperator.transform:Find("SectionChoose/BottomButton/Section2/Section2Off"):GetComponent("Button")
+local Section3On = CrossOperator.transform:Find("SectionChoose/BottomButton/Section3/Section3On"):GetComponent("Button")
+local Section3Off = CrossOperator.transform:Find("SectionChoose/BottomButton/Section3/Section3Off"):GetComponent("Button")
+
+--轴按钮以及文字Text
+local PosYButton = FunctionChoose.transform:Find("Transform").gameObject:GetComponent("Button")
+local PosYButtonText = PosYButton.transform:Find("Text").gameObject:GetComponent("Text")
+local RotXButton = FunctionChoose.transform:Find("RotateX").gameObject:GetComponent("Button")
+local RotXButtonText = RotXButton.transform:Find("Text").gameObject:GetComponent("Text")
+local RotZButton = FunctionChoose.transform:Find("RotateY").gameObject:GetComponent("Button")
+local RotZButtonText = RotZButton.transform:Find("Text").gameObject:GetComponent("Text")
+
+local SliderPanel = ToolMenu.transform:Find("SliderPanel").gameObject
+local Slider = SliderPanel.transform:Find("Slider").gameObject:GetComponent("Slider")
+local TextValue = Slider.transform:Find("HandleSlideArea/Handle/Image/Text"):GetComponent("Text")
+
 --切面替补
-local PanelCrossSubstitle = toolMenu.transform:Find("PanelGroup/PanelCrossSubstitle").gameObject
+local PanelCrossSubstitute = toolMenu.transform:Find("PanelGroup/PanelCrossSubstitute").gameObject
 --拆解按钮
 local PanelPart = toolMenu.transform:Find("PanelGroup/PanelPart").gameObject
 local ButtonPart = PanelPart.transform:Find("ButtonPart").gameObject:GetComponent("Button")
 local ButtonPartImage = PanelPart.transform:Find("ButtonPart/Icon").gameObject:GetComponent("Image")
 local ButtonPartText = PanelPart.transform:Find("ButtonPart/Text").gameObject:GetComponent("Text")
 --拆解替补
-local PanelPartSubstitle = toolMenu.transform:Find("PanelGroup/PanelPartSubstitle").gameObject
+local PanelPartSubstitute = toolMenu.transform:Find("PanelGroup/PanelPartSubstitute").gameObject
 --标注点按钮
-local ButtonPoint = toolMenu.transform:Find("PanelPoint/ButtonPoint").gameObject:GetComponent("Button")
-local ButtonPointImage = toolMenu.transform:Find("PanelPoint/ButtonPoint/Icon").gameObject:GetComponent("Image")
-local ButtonPointText = toolMenu.transform:Find("PanelPoint/ButtonPoint/Text").gameObject:GetComponent("Text")
+local PanelPoint = toolMenu.transform:Find("PanelPoint").gameObject
+local ButtonPoint = PanelPoint.transform:Find("ButtonPoint").gameObject:GetComponent("Button")
+local ButtonPointImage = PanelPoint.transform:Find("ButtonPoint/Icon").gameObject:GetComponent("Image")
+local ButtonPointText = PanelPoint.transform:Find("ButtonPoint/Text").gameObject:GetComponent("Text")
+--标注点替补
+local PanelPointSubstitute = toolMenu.transform:Find("PanelPointSubstitute").gameObject
+
 --多模型列表按钮
-local ButtonMulModelList = GameObject.Find("Root/UI/Main UI Canvas/Title Panel").transform:Find("UpperRight/MulModelList Button").gameObject:GetComponent("Button")
+local ButtonMulModelList = GameObject.Find("Root/UI/Main UI Canvas/Title Panel").transform:Find("UpperRight/MulModelListButton").gameObject:GetComponent("Button")
 --复位按钮
 local ButtonReset = toolMenu.transform:Find("PanelReset/ButtonReset").gameObject:GetComponent("Button")
 local ButtonResetImage = toolMenu.transform:Find("PanelReset/ButtonReset/Icon").gameObject:GetComponent("Image")
@@ -115,14 +145,15 @@ local ButtonAnimationPause = toolCanvas.transform:Find("ButtonAnimationPause").g
 
 --[DDenry]********************************************************************************
 local CrossUI = toolCanvas.transform:Find("Cross_UI").gameObject
+
 local MenuUI = CrossUI.transform:Find("Menu UI").gameObject
 local OperatePanel = MenuUI.transform:Find("Operate Panel").gameObject
 local BottomButton = MenuUI.transform:Find("Bottom Button").gameObject
 --
-local SliderPanel = CrossUI.transform:Find("Slider Panel").gameObject
-local ShowPanel = CrossUI.transform:Find("Show Panel").gameObject
+--local SliderPanel = CrossUI.transform:Find("Slider Panel").gameObject
+--local ShowPanel = CrossUI.transform:Find("Show Panel").gameObject
 
---切面Section1状态按钮
+--[[--切面Section1状态按钮
 local Section1On = BottomButton.transform:Find("Section1/Section1On").gameObject:GetComponent("Button")
 local Section1Off = BottomButton.transform:Find("Section1/Section1Off").gameObject:GetComponent("Button")
 --切面Section2状态按钮
@@ -130,15 +161,15 @@ local Section2On = BottomButton.transform:Find("Section2/Section2On").gameObject
 local Section2Off = BottomButton.transform:Find("Section2/Section2Off").gameObject:GetComponent("Button")
 --切面Section3状态按钮
 local Section3On = BottomButton.transform:Find("Section3/Section3On").gameObject:GetComponent("Button")
-local Section3Off = BottomButton.transform:Find("Section3/Section3Off").gameObject:GetComponent("Button")
+local Section3Off = BottomButton.transform:Find("Section3/Section3Off").gameObject:GetComponent("Button")]]
 
---轴按钮以及文字Text
+--[[--轴按钮以及文字Text
 local PosYButton = OperatePanel.transform:Find("Pos Panel/PosYButton").gameObject:GetComponent("Button")
 local PosYButtonText = PosYButton.transform:Find("Text").gameObject:GetComponent("Text")
 local RotXButton = OperatePanel.transform:Find("Rot Panel/RotXButton").gameObject:GetComponent("Button")
 local RotXButtonText = RotXButton.transform:Find("Text").gameObject:GetComponent("Text")
 local RotZButton = OperatePanel.transform:Find("Rot Panel/RotZButton").gameObject:GetComponent("Button")
-local RotZButtonText = RotZButton.transform:Find("Text").gameObject:GetComponent("Text")
+local RotZButtonText = RotZButton.transform:Find("Text").gameObject:GetComponent("Text")]]
 
 --位置和旋转
 local PosPanelImage = OperatePanel.transform:Find("Bottom Panel/Pos/Panel").gameObject:GetComponent("Image")
@@ -148,7 +179,7 @@ local RotPanelImage = OperatePanel.transform:Find("Bottom Panel/Rot/Panel").game
 local Toggle = OperatePanel.transform:Find("Top Panel/Toggle").gameObject:GetComponent("Toggle")
 local ToggleText = Toggle.transform:Find("ToggleText").gameObject:GetComponent("Text")
 
---Slider
+--[[--Slider
 local Slider = SliderPanel.transform:Find("Slider").gameObject:GetComponent("Slider")
 local TextName = SliderPanel.transform:Find("Text Panel/TextName").gameObject:GetComponent("Text")
 local TextValue = SliderPanel.transform:Find("Text Panel/TextValue").gameObject:GetComponent("Text")
@@ -163,7 +194,7 @@ local InputField = SliderPanel.transform:Find("Text Panel/Value Panel").gameObje
 
 --底部显示切面位移以及旋转信息
 local ShowPos = ShowPanel.transform:Find("ShowPos").gameObject:GetComponent("Text")
-local ShowRot = ShowPanel.transform:Find("ShowRot").gameObject:GetComponent("Text")
+local ShowRot = ShowPanel.transform:Find("ShowRot").gameObject:GetComponent("Text")]]
 
 --爆炸操作/拆解
 local BoomUI = toolCanvas.transform:Find("Boom_UI").gameObject
@@ -193,41 +224,38 @@ local step_text = PartUI.transform:Find("step_text").gameObject:GetComponent("Te
 
 --
 local defaultViewTransform = {}
-
 local haveViewPort = false
-local haveBoom = false
-local isBoom = false
-local havePart = false
-local havePoint = false
-local haveCross = false
-local haveSelfOwnedAnimation = false
 local animation
 
 --记录拆解步骤索引
 local currentIndex = 0
-local currentPlayIndex
 --
 local step = 0
+
+--普通颜色
+COMMON.normalColor = {
+    r = 172 / 255,
+    g = 172 / 255,
+    b = 172 / 255,
+    a = 1
+}
+
 --不可点击状态
-local unclickedColor = { r = 1, g = 1, b = 1, a = 60 / 255 }
---
-local clickedColor = { r = 1, g = 1, b = 1, a = 1 }
---选中 color.a = 1
-local selectedColor = {
-    r = 66.0 / 255, g = 133.0 / 255, b = 244.0 / 255, a = 1
+COMMON.nonClickable = {
+    r = 1,
+    g = 1,
+    b = 1,
+    a = 1
 }
---未选中 color.a = 0
-local unselectedColor = {
-    r = 66.0 / 255, g = 133.0 / 255, b = 244.0 / 255, a = 0
+
+--选中状态颜色
+COMMON.selectedColor = {
+    r = 66 / 255,
+    g = 133 / 255,
+    b = 244 / 255,
+    a = 1
 }
---标注点选中状态
-local pointSelectedColor = {
-    r = 66.0 / 255, g = 133.0 / 255, b = 244.0 / 255, a = 1
-}
---标注点未选中状态
-local pointUnselectedColor = {
-    r = 1, g = 1, b = 1, a = 1
-}
+
 --
 local textHalfTransparentColor = {
     r = 1, g = 1, b = 1, a = 0.5
@@ -235,9 +263,6 @@ local textHalfTransparentColor = {
 local textNoTransparentColor = {
     r = 1, g = 1, b = 1, a = 1
 }
-
---标识当前操作模式[0-未选中 1-爆炸 2-切面 3-拆解]
-local currentMode = 0
 
 --设置切面Pos范围
 local RangePos = {
@@ -278,9 +303,9 @@ local table_prefab_point = {}
 
 --剖切菜单互斥按钮
 local menuDeselectButton = {
-    PosYButtonText,
-    RotXButtonText,
-    RotZButtonText
+    PosYButton,
+    RotXButton,
+    RotZButton
 }
 --切面参数[显示切面数量，是否可自调(默认为否，不显示切面菜单)]
 local sectionArguments = {
@@ -560,26 +585,20 @@ function StudioData.LoadPointData()
     --判断是否有普通标注点
     if #table_prefab_point_normal > 0 then
         --设置标准点按钮可点击
-        havePoint = true
-        ButtonPointImage.color = clickedColor
-        ButtonPointText.color = clickedColor
+        MENU.functionsList['POINT'] = true
 
         --判断是否自动显示标注点
-        if _Global:GetData("autoShowPoint") ~= nil then
-            if _Global:GetData("autoShowPoint"):toboolean() then
+        if _Global:GetData("autoPROCESS.ShowPoint") ~= nil then
+            if _Global:GetData("autoPROCESS.ShowPoint"):toboolean() then
                 print("Points will auto show!")
                 --打开标注点
-                ToolMenuButtonClick(4)
+                PROCESS.ToolMenuButtonClick(ButtonPoint, "POINT")
             end
         end
     else
-        havePoint = false
-        ButtonPointImage.color = unclickedColor
-        ButtonPointText.color = unclickedColor
+        --不存在标注点
+        MENU.functionsList['POINT'] = false
     end
-
-    --设置标注点按钮状态
-    ButtonPoint.interactable = havePoint
 
     --为所有标注点绑定滑动事件
     for i, pointPrefab in pairs(table_prefab_point) do
@@ -694,8 +713,9 @@ function StudioData.HandleAnimation()
             if CS.SceneStudio.TimelinesManager.Instance.Timelines[i].Groups.Count > 0 then
                 --标记爆炸动画步骤
                 BoomStep = i
+
                 --设置 haveBoom = true
-                haveBoom = true
+                MENU.functionsList['BOOM'] = true
             end
         end
 
@@ -704,42 +724,39 @@ function StudioData.HandleAnimation()
             if CS.SceneStudio.TimelinesManager.Instance.Timelines[i].Groups.Count > 0 then
                 --标记自带动画步骤
                 SelfOwnedAnimationStep = i
+
                 --设置 haveSelfOwnedAnimation = true
-                haveSelfOwnedAnimation = true
+                MENU.functionsList['SELF_ANIMATION'] = true
             end
         end
     end
 
     --判断剩余的动画
-    if CS.SceneStudio.TimelinesManager.Instance.Timelines.Count > (((haveBoom and 1) or 0) + ((haveSelfOwnedAnimation and 1) or 0)) then
+    if CS.SceneStudio.TimelinesManager.Instance.Timelines.Count > (((MENU.functionsList['BOOM'] and 1) or 0) + ((MENU.functionsList['SELF_ANIMATION'] and 1) or 0)) then
         --获取拆装步数
-        step = CS.SceneStudio.TimelinesManager.Instance.Timelines.Count - (((haveBoom and 1) or 0) + ((haveSelfOwnedAnimation and 1) or 0))
+        step = CS.SceneStudio.TimelinesManager.Instance.Timelines.Count - (((MENU.functionsList['BOOM'] and 1) or 0) + ((MENU.functionsList['SELF_ANIMATION'] and 1) or 0))
         --
         if step <= 1 then
             --判断是否存在有意义的动画数据
             if CS.SceneStudio.TimelinesManager.Instance.Timelines[0].Groups.Count > 0 then
                 --标记 havePart = true
-                havePart = true
+                MENU.functionsList['PART'] = true
             end
         else
-            havePart = true
+            --
+            MENU.functionsList['PART'] = true
         end
     end
 
     --
-    print("AnimationFunction:", (haveBoom and "Have Boom!") or "No Boom!")
-    print("AnimationFunction", (haveSelfOwnedAnimation and "Have SelfOwnedAnimator!") or "No SelfOwnedAnimator!")
-    print("AnimationFunction", (havePart and "Have Part!") or "No Part!")
+    print("AnimationFunction:", (MENU.functionsList['BOOM'] and "Have Boom!") or "No Boom!")
+    print("AnimationFunction", (MENU.functionsList['SELF_ANIMATION'] and "Have SelfOwnedAnimation!") or "No SelfOwnedAnimation!")
+    print("AnimationFunction", (MENU.functionsList['PART'] and "Have Part!") or "No Part!")
 end
 --
-function PROCESS.SetSceneTool()
+function PROCESS.HandleLoadedData()
     --处理动画信息
     StudioData.HandleAnimation()
-
-    --爆炸按钮
-    ButtonBoom.interactable = haveBoom
-    --拆装按钮
-    ButtonPart.interactable = havePart
 
     --获取切面参数
     sectionArguments["sectionNum"] = ((_Global:GetData("_sectionNum") ~= nil) and tonumber(_Global:GetData("_sectionNum"))) or tonumber(_Global:GetData("sectionNum"))
@@ -761,69 +778,114 @@ function PROCESS.SetSceneTool()
     --
     if sectionArguments["sectionNum"] == 0 then
         --
-        haveCross = false
-        ButtonCross.interactable = false
-        --
-        ButtonCrossImage.color = unclickedColor
-        ButtonCrossText.color = unclickedColor
+        MENU.functionsList['CROSS'] = false
 
     elseif sectionArguments["sectionNum"] > 0 then
         --开启剖切功能
-        haveCross = true
-        ButtonCross.interactable = true
-        ButtonCrossImage.color = clickedColor
-        ButtonCrossText.color = clickedColor
-        --
-        Section1Off.interactable = true
-        Section2Off.interactable = true
-        Section3Off.interactable = true
-        --
-        if sectionArguments["sectionNum"] == 1 then
-            Section2Off.interactable = false
-            Section3Off.interactable = false
-        elseif sectionArguments["sectionNum"] == 2 then
-            Section3Off.interactable = false
-        end
+        MENU.functionsList['CROSS'] = true
     else
         print("error!Invalid sectionArguments:" .. sectionArguments["sectionNum"])
     end
+end
 
-    --如果有剖切
-    if haveCross then
+--准备功能菜单
+function MENU.PrepareMenu()
+    --遍历菜单列表,将数据解析结果与字符下标匹配
+    for i, item in pairs(MENU.functionsList) do
+        --自带动画
+        if i == "SELF_ANIMATION" then
+            if item then
+                --如果存在自带动画，则默认为当前操作
+                table.insert(MENU.functionsList['CURRENT_FUNCTION'], "SELF_ANIMATION")
 
-        --初始化剖切功能
-        Coroutine_Cross = coroutine.create(function()
-            CROSS.InitCrossFunction()
-        end)
-        --
-        assert(coroutine.resume(Coroutine_Cross))
+                animation = OriObject:GetComponentInChildren(typeof(CS.UnityEngine.Animation))
+                --设置Animation模式为Loop
+                animation.wrapMode = CS.UnityEngine.WrapMode.Loop
+                --
+                StudioData.ShowAnimatorFunction(item)
+            end
+            --爆炸动画
+        elseif i == "BOOM" then
+            PanelBoom:SetActive(item)
+            PanelBoomSubstitute:SetActive(not item)
+            --拆装动画
+        elseif i == "PART" then
+            PanelPart:SetActive(item)
+            PanelPartSubstitute:SetActive(not item)
+            --剖切
+        elseif i == "CROSS" then
+            --
+            PanelCross:SetActive(item)
+            PanelCrossSubstitute:SetActive(not item)
 
-        --根据参数设置切面功能
-        if ((sectionArguments["canControl"] == nil) or (not sectionArguments["canControl"])) then
-            MenuUI:SetActive(false)
-        elseif sectionArguments["canControl"] then
-            MenuUI:SetActive(true)
+            --存在剖切
+            if item then
+                --判断操作面板显示位置
+                if not MENU.functionsList['BOOM'] or not MENU.functionsList['PART'] then
+                    FunctionChoose:GetComponent("RectTransform").anchorMin = Vector2(FunctionChoose:GetComponent("RectTransform").anchorMin.x, -3)
+                    FunctionChoose:GetComponent("RectTransform").anchorMax = Vector2(FunctionChoose:GetComponent("RectTransform").anchorMax.x, 0)
+                else
+                    FunctionChoose:GetComponent("RectTransform").anchorMin = Vector2(FunctionChoose:GetComponent("RectTransform").anchorMin.x, 1)
+                    FunctionChoose:GetComponent("RectTransform").anchorMax = Vector2(FunctionChoose:GetComponent("RectTransform").anchorMax.x, 4)
+                end
+
+                --初始化剖切功能
+                Coroutine_Cross = coroutine.create(function()
+                    CROSS.InitCrossFunction()
+                end)
+                --
+                assert(coroutine.resume(Coroutine_Cross))
+                --
+                Section1Off.interactable = true
+                Section2Off.interactable = true
+                Section3Off.interactable = true
+                --
+                if sectionArguments["sectionNum"] == 1 then
+                    Section2Off.interactable = false
+                    Section3Off.interactable = false
+                elseif sectionArguments["sectionNum"] == 2 then
+                    Section3Off.interactable = false
+                end
+
+                --根据参数设置切面功能
+                if ((sectionArguments["canControl"] == nil) or (not sectionArguments["canControl"])) then
+                    MenuUI:SetActive(false)
+                elseif sectionArguments["canControl"] then
+                    MenuUI:SetActive(true)
+                end
+                --不存在剖切
+            else
+                --
+                ButtonCrossImage.color = COMMON.normalColor
+                ButtonCrossText.color = COMMON.normalColor
+            end
+            --标注点
+        elseif i == "POINT" then
+            PanelPoint:SetActive(item)
+            PanelPointSubstitute:SetActive(not item)
+            --虚实景切换
+        elseif i == "VIEW_TRANSFER" then
+            --只有AR&VR模式下才有该功能
+            if sceneType == "AR&VR" then
+                --判断是否显示背景切换按钮
+                SwitchButton.gameObject:SetActive(item)
+                --
+                if _Global:GetData("defaultView") == "Real" then
+                    SwitchButton.gameObject:GetComponent("Image").color = { r = 60 / 255, g = 120 / 255, b = 40 / 255, a = 1 }
+                    SwitchButtonText.text = "实景"
+                    SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleRight
+                    SwitchButtonText.gameObject.transform:SetSiblingIndex(0)
+                else
+                    SwitchButton.gameObject:GetComponent("Image").color = { r = 1, g = 1, b = 1, a = 90 / 255 }
+                    SwitchButtonText.text = "虚景"
+                    SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleLeft
+                    SwitchButtonText.gameObject.transform:SetSiblingIndex(1)
+                end
+            end
         end
     end
 
-    --设置按钮状态
-    PanelBoom:SetActive(haveBoom)
-    PanelBoomSubstitle:SetActive(not haveBoom)
-
-    PanelPart:SetActive(havePart)
-    PanelPartSubstitle:SetActive(not havePart)
-
-    PanelCross:SetActive(haveCross)
-    PanelCrossSubstitle:SetActive(not haveCross)
-
-    --如果存在自带动画
-    if haveSelfOwnedAnimation then
-        animation = OriObject:GetComponentInChildren(typeof(CS.UnityEngine.Animation))
-        --设置Animation模式为Loop
-        animation.wrapMode = CS.UnityEngine.WrapMode.Loop
-        --
-        StudioData.ShowAnimatorFunction(haveSelfOwnedAnimation)
-    end
+    print("FunctionMenu Prepared!")
 end
 
 --场景中所有数据已加载完毕
@@ -832,12 +894,21 @@ function StudioData.DataLoadedCompleted()
 
     print("The scene " .. (haveViewPort and "have" or "don't have") .. " view port!")
 
+    --解析数据
+    PROCESS.HandleLoadedData()
+
+    --准备菜单栏目
+    MENU.PrepareMenu()
+
+    --
+    PROCESS.PrepareScene()
+end
+
+--准备基础场景
+function PROCESS.PrepareScene()
     --获取到手势操作实例
     FingerOperator_Model = Contents.transform:GetComponent(typeof(CS.XLuaBehaviour))
     FingerOperator_Camera = CameraModel:GetComponent(typeof(CS.XLuaBehaviour))
-
-    --设置菜单模式
-    PROCESS.SetSceneTool()
 
     --模型调整为预设角度
     Contents.transform.localRotation = defaultViewTransform['localRotation']
@@ -860,24 +931,6 @@ function StudioData.DataLoadedCompleted()
         --开启手势操作
         FingerOperator_Model.enabled = true
 
-        --只有AR&VR模式下才有该功能
-        if sceneType == "AR&VR" then
-            --判断是否显示背景切换按钮
-            SwitchButton.gameObject:SetActive(_Global:GetData("haveViewTransfer"))
-            --
-            if _Global:GetData("defaultView") == "Real" then
-                SwitchButton.gameObject:GetComponent("Image").color = { r = 60 / 255, g = 120 / 255, b = 40 / 255, a = 1 }
-                SwitchButtonText.text = "实景"
-                SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleRight
-                SwitchButtonText.gameObject.transform:SetSiblingIndex(0)
-            else
-                SwitchButton.gameObject:GetComponent("Image").color = { r = 1, g = 1, b = 1, a = 90 / 255 }
-                SwitchButtonText.text = "虚景"
-                SwitchButtonText.alignment = CS.UnityEngine.TextAnchor.MiddleLeft
-                SwitchButtonText.gameObject.transform:SetSiblingIndex(1)
-            end
-        end
-
         --隐藏Loading界面
         Loading:SetActive(false)
 
@@ -887,9 +940,14 @@ function StudioData.DataLoadedCompleted()
 
     --显示返回键背景Panel
     Panel:SetActive(true)
+
     --显示功能菜单
     toolMenu:SetActive(true)
+
+    --
+    print("Current have " .. #MENU.functionsList['CURRENT_FUNCTION'] .. " function(s) in the menu~")
 end
+
 --
 function PROCESS.NeedShowMulModelListOrNot()
 
@@ -999,6 +1057,17 @@ end
 --
 function PROCESS.InitDataTable()
 
+    --菜单列表
+    MENU.functionsList = {
+        ['BOOM'] = false,
+        ['PART'] = false,
+        ['CROSS'] = false,
+        ['POINT'] = false,
+        ['VIEW_TRANSFER'] = _Global:GetData("haveViewTransfer"),
+        ['SELF_ANIMATION'] = false,
+        ['CURRENT_FUNCTION'] = {}
+    }
+
     --初始化
     defaultViewTransform = {
         localPosition = Vector3.zero,
@@ -1030,21 +1099,6 @@ end
 
 --标识播放步骤
 local play_step = -1
-
---恢复模型至初始加载状态
-function PROCESS.ResetSceneState()
-    --相机距离复位
-    CameraModel.transform.localScale = Vector3.one
-
-    --模型transform
-    Contents.transform.localPosition = defaultViewTransform['localPosition']
-    Contents.transform.localRotation = defaultViewTransform['localRotation']
-    Contents.transform.localScale = defaultViewTransform['localScale']
-
-    --模型动画状态
-    --设置场景状态为工具第一步状态
-    CS.SceneStudio.TimelinesManager.Instance.Timelines[0].Recorder:Apply()
-end
 
 --添加监听
 function COMMON.RegisterListener()
@@ -1100,54 +1154,48 @@ function COMMON.RegisterListener()
 
     --爆炸按钮点击
     ButtonBoom.onClick:AddListener(function()
-        ToolMenuButtonClick(1)
+        PROCESS.ToolMenuButtonClick(ButtonBoom, "BOOM")
     end)
 
     --切面按钮点击
     ButtonCross.onClick:AddListener(function()
-        ToolMenuButtonClick(2)
+        PROCESS.ToolMenuButtonClick(ButtonCross, "CROSS")
     end)
 
     --拆解按钮点击
     ButtonPart.onClick:AddListener(function()
-        ToolMenuButtonClick(3)
+        PROCESS.ToolMenuButtonClick(ButtonPart, "PART")
     end)
 
     --标注点按钮点击
     ButtonPoint.onClick:AddListener(function()
-        ToolMenuButtonClick(4)
+        PROCESS.ToolMenuButtonClick(ButtonPoint, "POINT")
     end)
 
     --复位按钮
     ButtonReset.onClick:AddListener(function()
-        ButtonResetImage.color = (ButtonResetImage.color.r == 1 and pointSelectedColor) or pointUnselectedColor
-        ButtonResetText.color = (ButtonResetText.color.r == 1 and pointSelectedColor) or pointUnselectedColor
-        ButtonReset0.gameObject:SetActive(not ButtonReset0.gameObject.activeSelf)
         --
-        if sectionArguments["canControl"] then
-            if ButtonReset0.gameObject.activeSelf then
-                MenuUI:SetActive(false)
-            else
-                MenuUI:SetActive(true)
-            end
-        end
+        PROCESS.ToolMenuButtonClick(ButtonReset, "RESET")
+        --[[        ButtonResetImage.color = (ButtonResetImage.color.r == 1 and COMMON.selectedColor) or pointUnselectedColor
+                ButtonResetText.color = (ButtonResetText.color.r == 1 and COMMON.selectedColor) or pointUnselectedColor
+                ButtonReset0.gameObject:SetActive(not ButtonReset0.gameObject.activeSelf)
+                --
+                if sectionArguments["canControl"] then
+                    if ButtonReset0.gameObject.activeSelf then
+                        MenuUI:SetActive(false)
+                    else
+                        MenuUI:SetActive(true)
+                    end
+                end]]
     end)
 
     --复位按钮点击
     ButtonReset0.onClick:AddListener(function()
-
-        --如果是剖切模式下并且canControl，显示切面控制界面
-        if (currentMode == 2) and sectionArguments["canControl"] then
-            MenuUI:SetActive(true)
-        end
-
         --
-        ButtonResetImage.color = pointUnselectedColor
-        ButtonResetText.color = pointUnselectedColor
+        PROCESS.ToolMenuButtonClick(ButtonReset, "RESET")
 
-        --场景模型以及视口复位
-        PROCESS.ResetSceneState()
-
+        --场景视口复位
+        PROCESS.ResetCameraView()
     end)
 
     --动画播放按钮
@@ -1206,16 +1254,6 @@ function COMMON.RegisterListener()
         CROSS.ClickMenuButton(RotZButtonText, RotPanelImage, "RotZ", QuadArr[currentSection][2].y)
     end)
 
-    --Slider微调按钮监听
-    UpButton.onClick:AddListener(function()
-        operateType = false
-        Slider.value = Slider.value + 0.1
-    end)
-    DownButton.onClick:AddListener(function()
-        operateType = false
-        Slider.value = Slider.value - 0.1
-    end)
-
     --设置Toggle监听
     Toggle.onValueChanged:AddListener(function(value)
         SetSectionVisibility(value)
@@ -1251,7 +1289,7 @@ function COMMON.RegisterListener()
         ButtonRestoredText.color = textHalfTransparentColor
 
         --恢复模型至初始状态
-        RestoredModel()
+        PROCESS.RestoredModel()
 
         --播放粒子效果
         if Explosion ~= nil then
@@ -1285,7 +1323,7 @@ function PROCESS.PreStep()
     play_step = play_step - 1
 
     --如果当前为非拆装步骤
-    while (haveBoom and (play_step == BoomStep)) or (haveSelfOwnedAnimation and (play_step == SelfOwnedAnimationStep)) do
+    while (MENU.functionsList['BOOM'] and (play_step == BoomStep)) or (MENU.functionsList['SELF_ANIMATION'] and (play_step == SelfOwnedAnimationStep)) do
         play_step = play_step - 1
     end
 
@@ -1302,7 +1340,7 @@ function PROCESS.PreStep()
         ButtonReplayText.color = textHalfTransparentColor
 
         --恢复模型至初始状态
-        RestoredModel()
+        PROCESS.RestoredModel()
     else
         --停止场景中所有的Tween
         CS.DG.Tweening.DOTween.PauseAll()
@@ -1311,6 +1349,7 @@ function PROCESS.PreStep()
         --标识当前真实播放步骤
         --currentPlayIndex = play_step - 1
 
+        --播放动画
         PreviewManager:PreviewSceneStepData(play_step)
 
         --判断是否有StepPoint
@@ -1333,7 +1372,7 @@ function PROCESS.NextStep()
     currentIndex = currentIndex + 1
 
     --如果当前为非拆装步骤
-    while (haveBoom and (play_step == BoomStep)) or (haveSelfOwnedAnimation and (play_step == SelfOwnedAnimationStep)) do
+    while (MENU.functionsList['BOOM'] and (play_step == BoomStep)) or (MENU.functionsList['SELF_ANIMATION'] and (play_step == SelfOwnedAnimationStep)) do
         play_step = play_step + 1
     end
 
@@ -1356,9 +1395,7 @@ function PROCESS.NextStep()
     CS.DG.Tweening.DOTween.PauseAll()
     CS.DG.Tweening.DOTween.KillAll()
 
-    --标识当前真实播放步骤
-    --currentPlayIndex = play_step - 1
-
+    --
     PreviewManager:PreviewSceneStepData(play_step)
 
     --判断是否有StepPoint
@@ -1372,7 +1409,7 @@ function PROCESS.NextStep()
 end
 
 --设置拆装过程中的按钮状态
-function SetPartStepButtonState(PartStepButtonState, state)
+function PROCESS.SetPartStepButtonState(PartStepButtonState, state)
     --
     if not state then
         ButtonBack.interactable = state
@@ -1392,127 +1429,164 @@ function SetPartStepButtonState(PartStepButtonState, state)
 
 end
 
---功能菜单按钮点击
-function ToolMenuButtonClick(mode)
-    if mode ~= 4 then
-        --如果有标注点则标注点按钮可点击
-        if havePoint then
-            --标注点设置为可点击状态
-            ButtonPoint.interactable = true
-        end
+--
+local EnumFunctionWeight = {
+    ['NONE'] = 0,
+    ['BOOM'] = 1,
+    ['PART'] = 2,
+    ['CROSS'] = 4,
+    ['POINT'] = 8,
+    ['VIEW_TRANSFER'] = 16,
+    ['SELF_ANIMATION'] = 32
+}
 
-        --爆炸模式
-        if mode == 1 then
-            --重置互斥按钮
-            ButtonCrossImage.color = (haveCross and clickedColor) or unclickedColor
-            ButtonCrossText.color = (haveCross and clickedColor) or unclickedColor
-            ButtonPartImage.color = (havePart and clickedColor) or unclickedColor
-            ButtonPartText.color = (havePart and clickedColor) or unclickedColor
+--实现Unity[Flags]标签功能
+function FlagEnum(weight)
+    local value = ""
 
-            --如果未选中，则重置互斥按钮，并设置为选中状态
-            ButtonBoomImage.color = (ButtonBoomImage.color.r == 1 and selectedColor) or clickedColor
-            ButtonBoomText.color = (ButtonBoomText.color.r == 1 and selectedColor) or clickedColor
-        end
-        --切面模式
-        if mode == 2 then
-            --重置互斥按钮
-            ButtonBoomImage.color = (haveBoom and clickedColor) or unclickedColor
-            ButtonBoomText.color = (haveBoom and clickedColor) or unclickedColor
-            ButtonPartImage.color = (havePart and clickedColor) or unclickedColor
-            ButtonPartText.color = (havePart and clickedColor) or unclickedColor
-
-            --如果未选中，则重置互斥按钮，并设置为选中状态
-            ButtonCrossImage.color = (ButtonCrossImage.color.r == 1 and selectedColor) or clickedColor
-            ButtonCrossText.color = (ButtonCrossText.color.r == 1 and selectedColor) or clickedColor
-            --未选中切面模式
-            if ButtonCrossImage.color.r == 1 then
-                --如果有标注点则标注点按钮可点击
-                if havePoint then
-                    ButtonPoint.interactable = true
-                    --标注点设置为可点击状态
-                    ButtonPointImage.color = clickedColor
-                    ButtonPointText.color = clickedColor
-                end
-            else
-                --判断是否显示操作切面面板
-                MenuUI:SetActive(sectionArguments["canControl"] and not ButtonReset0.gameObject.activeSelf)
-                --如果有则关闭标注点
-                if havePoint then
-                    ShowPoint(false)
-                    --标注点按钮不可点击
-                    ButtonPoint.interactable = false
-                    --标注点设置为不可点击状态
-                    ButtonPointImage.color = unclickedColor
-                    ButtonPointText.color = unclickedColor
-                end
+    repeat
+        for i, _weight in pairs(EnumFunctionWeight) do
+            if weight >= _weight and weight < _weight * 2 then
+                weight = weight - _weight
+                value = value .. i .. "|"
             end
         end
-        --拆解模式
-        if mode == 3 then
-            --重置互斥按钮
-            ButtonBoomImage.color = (haveBoom and clickedColor) or unclickedColor
-            ButtonBoomText.color = (haveBoom and clickedColor) or unclickedColor
-            ButtonCrossImage.color = (haveCross and clickedColor) or unclickedColor
-            ButtonCrossText.color = (haveCross and clickedColor) or unclickedColor
+    until weight == 0
 
-            --如果未选中，则重置互斥按钮，并设置为选中状态
-            ButtonPartImage.color = (ButtonPartImage.color.r == 1 and selectedColor) or clickedColor
-            ButtonPartText.color = (ButtonPartText.color.r == 1 and selectedColor) or clickedColor
+    --
+    print("===========", value)
+end
+
+--功能按钮组
+MENU.ToolButtonGroup = {
+    ['MU-BUTTONS'] = {
+        ['BOOM'] = ButtonBoom,
+        ['PART'] = ButtonPart,
+        ['CROSS'] = ButtonCross
+    },
+    ['BOOM'] = ButtonBoom,
+    ['PART'] = ButtonPart,
+    ['CROSS'] = ButtonCross,
+    ['POINT'] = ButtonPoint,
+    ['RESET'] = ButtonReset
+}
+
+--重置功能按钮
+function PROCESS.HandleMenuButton(type, button, mode)
+    --
+    if type == "ResetOthers" then
+        --重置互斥按钮
+        for i, _button in pairs(MENU.ToolButtonGroup['MU-BUTTONS']) do
+            if _button ~= button then
+                --反选互斥按钮
+                PROCESS.HandleMenuButton("DeselectSelf", _button, i)
+            end
         end
-        --判断当前操作模式
-        JudgeCurrentMode()
-    end
 
-    --标注点按钮
-    if mode == 4 then
-        ButtonPointImage.color = (ButtonPointImage.color.r == 1 and pointSelectedColor) or pointUnselectedColor
-        ButtonPointText.color = (ButtonPointText.color.r == 1 and pointSelectedColor) or pointUnselectedColor
-        --关闭标注点
-        if ButtonPointImage.color.r == 1 then
-            ShowPoint(false)
+    elseif type == "SelectSelf" then
+        button.transform:Find("Icon").gameObject:GetComponent("Image").color = COMMON.selectedColor
+        button.transform:Find("Text").gameObject:GetComponent("Text").color = COMMON.selectedColor
+
+        --TODO:标识当前操作
+        table.insert(MENU.functionsList['CURRENT_FUNCTION'], mode)
+
+        --进行相应的功能操作
+        PROCESS.CallToolFunction(mode)
+
+    elseif type == "DeselectSelf" then
+        button.transform:Find("Icon").gameObject:GetComponent("Image").color = COMMON.normalColor
+        button.transform:Find("Text").gameObject:GetComponent("Text").color = COMMON.normalColor
+
+        --删除当前操作记录
+        for i, v in pairs(MENU.functionsList['CURRENT_FUNCTION']) do
+            if v == mode then
+                table.remove(MENU.functionsList['CURRENT_FUNCTION'], i)
+                break
+            end
+        end
+
+        --TODO：反选后的操作
+        --[[
+            /*  判断当前
+            *
+            */
+        ]]
+
+        if mode == "RESET" then
+            ButtonReset0.gameObject:SetActive(false)
         else
-            --显示标注点
-            ShowPoint(true)
+            --
+            if mode == "BOOM" then
+                PROCESS.ResetBoomFunction()
+            elseif mode == "PART" then
+                PROCESS.ResetPartFunction()
+
+            elseif mode == "CROSS" then
+                --隐藏所有切面及模型替代
+                CROSS.ResetCrossFunction()
+            end
+
+            --判断当前是否需要显示默认功能(自带动画)
+            if MENU.functionsList['SELF_ANIMATION'] then
+                StudioData.ShowAnimatorFunction(true)
+            end
         end
     end
 end
 
+--功能菜单按钮点击
+function PROCESS.ToolMenuButtonClick(button, mode)
+    --判断当前功能选择
+    --如果不是标注点功能
+    if mode ~= "POINT" and mode ~= "RESET" then
+
+        --功能按钮
+        PROCESS.HandleMenuButton("ResetOthers", button, mode)
+
+        --切面模式
+        if mode == "CROSS" then
+
+            --未选中切面模式
+            if ButtonCrossImage.color.r == 1 then
+                --如果有标注点则标注点按钮可点击
+                if MENU.functionsList['POINT'] then
+                    ButtonPoint.interactable = true
+                end
+            else
+                --判断是否显示操作切面面板
+                MenuUI:SetActive(sectionArguments["canControl"] and not ButtonReset0.gameObject.activeSelf)
+
+                --如果有则关闭标注点
+                if MENU.functionsList['POINT'] then
+                    PROCESS.ShowPoint(false)
+
+                    --标注点按钮不可点击
+                    ButtonPoint.interactable = false
+                end
+            end
+        end
+    end
+
+    --
+    if table.concat(MENU.functionsList['CURRENT_FUNCTION'], "|"):find(mode) ~= nil then
+        PROCESS.HandleMenuButton("DeselectSelf", button, mode)
+    else
+        PROCESS.HandleMenuButton("SelectSelf", button, mode)
+    end
+end
+
+
 --[[DDenry]]
 --标注点按钮,type=false关闭，type=true显示
-function ShowPoint(type)
+function PROCESS.ShowPoint(type)
     --操作标注点
     for i = 1, #table_prefab_point_normal do
         table_prefab_point_normal[i].gameObject:SetActive(type)
     end
 end
 
---判断当前操作模式
-function JudgeCurrentMode()
-    --爆炸模式
-    if not (ButtonBoomImage.color.r == 1) and not (ButtonBoomImage.color.g == 1) and not (ButtonBoomImage.color.b == 1) then
-        currentMode = 1
-        print("Function_Boom!")
-        --切面模式
-    elseif not (ButtonCrossImage.color.r == 1) and not (ButtonCrossImage.color.g == 1) and not (ButtonCrossImage.color.b == 1) then
-        currentMode = 2
-        print("Function_Cross!")
-        --拆解模式
-    elseif not (ButtonPartImage.color.r == 1) and not (ButtonPartImage.color.g == 1) and not (ButtonPartImage.color.b == 1) then
-        currentMode = 3
-        print("Function_Part!")
-        --未选中
-    else
-        currentMode = 0
-    end
-
-    --重置场景信息
-    ResetScene()
-
-    --调用相应功能
-    CallToolFunction()
-end
-
-function RestoredModel()
+--模型还原
+function PROCESS.RestoredModel()
     --停止场景中所有的Tween
     CS.DG.Tweening.DOTween.PauseAll()
     CS.DG.Tweening.DOTween.KillAll()
@@ -1529,108 +1603,259 @@ function RestoredModel()
     end
 end
 
---重置场景信息
-function ResetScene()
-    print("Reset Scene!")
+--相机视角复位
+function PROCESS.ResetCameraView()
+    --相机距离复位
+    CameraModel.transform.localScale = Vector3.one
 
-    --隐藏自动播放Animation的功能
-    if haveSelfOwnedAnimation then
+    --模型transform
+    Contents.transform.localPosition = defaultViewTransform['localPosition']
+    Contents.transform.localRotation = defaultViewTransform['localRotation']
+    Contents.transform.localScale = defaultViewTransform['localScale']
+end
+
+--功能重置
+function PROCESS.ResetBoomFunction()
+    --模型复原
+    PROCESS.RestoredModel()
+
+    --UI重置
+    BoomUI:SetActive(false)
+    --
+    ButtonExplosive.interactable = true
+    ButtonExplosiveText.color = textNoTransparentColor
+
+    ButtonRestored.interactable = false
+    ButtonRestoredText.color = textHalfTransparentColor
+
+    --粒子效果
+    if Explosion ~= nil then
+        Explosion:SetActive(false)
+    end
+end
+
+--
+function PROCESS.ResetPointFunction()
+    if MENU.functionsList['POINT'] then
+        PROCESS.ShowPoint(false)
+    end
+end
+--
+function PROCESS.ResetSelfAnimation()
+    --
+    if MENU.functionsList['SELF_ANIMATION'] then
         StudioData.ShowAnimatorFunction(false)
     end
+end
 
-    --初始的模型
-    OriObject:SetActive(true)
+--功能菜单重置
+function PROCESS.ResetMenu()
+    --重置所有菜单按钮
+    for i, button in pairs(MENU.ToolButtonGroup) do
+        if type(button) ~= "table" then
+            button.gameObject.transform:Find("Icon"):GetComponent("Image").color = COMMON.normalColor
+            button.gameObject.transform:Find("Text"):GetComponent("Text").color = COMMON.normalColor
+        end
+    end
 
+    ButtonReset0.gameObject:SetActive(false)
+
+    --隐藏菜单UI
+    toolMenu:SetActive(false)
+end
+
+--
+function PROCESS.ResetPartFunction()
     --
-    SetPartStepButtonState(nil, false)
-
+    PROCESS.RestoredModel()
+    --
+    PartUI:SetActive(false)
+    --
+    PROCESS.SetPartStepButtonState(nil, false)
+    --默认下一步按钮可以点击
     ButtonNext.interactable = true
     ButtonNextText.color = textNoTransparentColor
-
-    BoomUI:SetActive(false)
-    PartUI:SetActive(false)
 
     --步骤指示显示置空
     step_text.text = ""
 
-    --爆炸标识置否
-    isBoom = false
+    --当前步骤置零
+    currentIndex = 0
     --
-    if haveBoom or havePart then
+    play_step = -1
 
-        --当前步骤置零
-        currentIndex = 0
-        --
-        play_step = -1
-
-        --粒子效果
-        if Explosion ~= nil then
-            Explosion:SetActive(false)
-        end
-
-        if AudioSource ~= nil then
-            --停止场景中的音频
-            AudioSource.clip = ""
-            AudioSource:Stop()
-        end
-        --
-        RestoredModel()
+    if AudioSource ~= nil then
+        --停止场景中的音频
+        AudioSource.clip = ""
+        AudioSource:Stop()
     end
+end
+
+--重置场景至初始状态
+function PROCESS.ResetSceneState()
+    --重置相机视角
+    PROCESS.ResetCameraView()
+    --重置功能
+    PROCESS.ResetSceneFunction()
+    --
+    PROCESS.ResetMenu()
+end
+
+--重置场景功能
+function PROCESS.ResetSceneFunction()
+    print("Reset all functions of the scene!")
+    --
+    PROCESS.ResetBoomFunction()
+
+    --
+    PROCESS.ResetPartFunction()
 
     --调用重置切面功能
     CROSS.ResetCrossFunction()
+
+    --TODO:重置自带动画
+    PROCESS.ResetSelfAnimation()
+    --TODO:重置标注点
+    PROCESS.ResetPointFunction()
+end
+
+--Dispose
+function PROCESS.DisposeBoomFunction()
+
+end
+
+function PROCESS.DisposePartFunction()
+end
+--
+function PROCESS.DisposeCrossFunction()
+    --如果实例的对象存在，则销毁
+    if (SectionXY ~= nil) then
+        SectionXY:Destructor()
+
+        SectionXY = nil
+        Quad1 = nil
+    end
+
+    if SectionXZ ~= nil then
+        SectionXZ:Destructor()
+
+        SectionXZ = nil
+        Quad2 = nil
+    end
+
+    if SectionYZ ~= nil then
+        SectionYZ:Destructor()
+
+        SectionYZ = nil
+        Quad3 = nil
+    end
+end
+
+function PROCESS.DisposePointFunction()
+    --销毁所有标注点
+    if MENU.functionsList['POINT'] then
+        for i = 0, #table_prefab_point do
+            Destroy(table_prefab_point[i].gameObject)
+        end
+    end
+end
+
+function PROCESS.DisposeSelfAnimationFunction()
+    --将animation置空
+    if animation ~= nil then
+        animation = nil
+    end
+end
+
+function PROCESS.DisposeSceneTool()
+    --
+    PROCESS.DisposeCrossFunction()
+    --
+    PROCESS.DisposePointFunction()
+    --
+    PROCESS.DisposeSelfAnimationFunction()
+end
+
+function PROCESS.DisposeSceneState()
+    --
+    PROCESS.DisposeSceneTool()
+    --
+    _Global:SetData("haveMulModel", "")
+
+    --重置模型scale
+    GameObject.Find("Root/Models").transform.localScale = Vector3.one
+
+    Contents.transform.localRotation = Quaternion.Euler(Vector3.zero)
+
+    --
+    SwitchButton.gameObject:SetActive(false)
+
+    --关闭手势操作
+    FingerOperator_Model.enabled = false
+
+    --
+    defaultViewTransform = {}
+    --
+    COMMON.ReleaseDictionary()
+end
+
+--
+function COMMON.ReleaseDictionary()
+    --释放dictionary
+    for i = 0, #animationGameObjectId do
+        _Global:ReleseData(animationGameObjectId[i])
+        _Global:ReleseData("position_" .. animationGameObjectId[i])
+        _Global:ReleseData("rotation_" .. animationGameObjectId[i])
+        _Global:ReleseData("scale_" .. animationGameObjectId[i])
+    end
 end
 
 --调用相应功能
-function CallToolFunction()
-    --爆炸功能
-    if currentMode == 1 then
-        --如果模型含有爆炸动画
-        if haveBoom then
-            --
-            BoomUI:SetActive(true)
-            --如果为爆炸状态，则显示还原
-            if isBoom then
-                ButtonExplosive.interactable = false
-                ButtonExplosiveText.color = textHalfTransparentColor
-                ButtonRestored.interactable = true
-                ButtonRestoredText.color = textNoTransparentColor
-            else
-                ButtonExplosive.interactable = true
-                ButtonExplosiveText.color = textNoTransparentColor
-                ButtonRestored.interactable = false
-                ButtonRestoredText.color = textHalfTransparentColor
-            end
-        end
-        --切面功能
-    elseif currentMode == 2 then
-        --唤醒切面协程
-        --assert(coroutine.resume(Coroutine_Cross))
+function PROCESS.CallToolFunction(mode)
+    --协同功能
+    if mode == "RESET" then
+        ButtonReset0.gameObject:SetActive(not ButtonReset0.gameObject.activeSelf)
+        return
+    end
 
-        --TODO:
-        CrossUI:SetActive(true)
+    --TODO:标注点的操作
+    if mode == "POINT" then
+        return
+    end
+
+    --存在自带动画功能
+    if MENU.functionsList['SELF_ANIMATION'] then
+        --隐藏播放按钮
+        StudioData.ShowAnimatorFunction(false)
+    end
+
+    --互斥功能，模型状态复位
+    PROCESS.RestoredModel()
+
+    --爆炸功能
+    if mode == "BOOM" then
+        --如果模型含有爆炸动画
+        BoomUI:SetActive(true)
+
+        --切面功能
+    elseif mode == "CROSS" then
+        --显示剖切UI
+        CrossOperator:SetActive(true)
 
         --拆解功能
-    elseif currentMode == 3 then
-        --如果有拆装动画
-        if havePart then
-            --显示拆装界面
-            PartUI:SetActive(true)
-            --
-            step_text.text = currentIndex .. "/" .. step
-        end
-    else
-        if haveSelfOwnedAnimation then
-            StudioData.ShowAnimatorFunction(true)
-        end
+    elseif mode == "PART" then
+        --
+        step_text.text = currentIndex .. "/" .. step
+        --显示拆装界面
+        PartUI:SetActive(true)
     end
 end
 
 --切面按钮点击事件
 --[[
-	*selfButton 所点击按钮
-	*otherButton 与所操作按钮互斥的按钮
-	*type 标识是否显示操作UI
+    *selfButton 所点击按钮
+    *otherButton 与所操作按钮互斥的按钮
+    *type 标识是否显示操作UI
 
 ]]
 function CROSS.ControlMenu(selfButton, otherButton, type)
@@ -1640,12 +1865,14 @@ function CROSS.ControlMenu(selfButton, otherButton, type)
         ResetSectionButton(type)
 
         --显示OperatePanel
-        OperatePanel:SetActive(true)
+        FunctionChoose:SetActive(true)
+        --OperatePanel:SetActive(true)
 
         --调用SetCurrentSection重置变量值
         SetCurrentSection(type)
     else
-        OperatePanel:SetActive(false)
+        FunctionChoose:SetActive(false)
+        --OperatePanel:SetActive(false)
         --TODO:
         SectionXY.section:SetActive(false)
         SectionXY.crossedGameObject:SetActive(false)
@@ -1655,10 +1882,6 @@ function CROSS.ControlMenu(selfButton, otherButton, type)
         SectionYZ.crossedGameObject:SetActive(false)
         OriObject:SetActive(true)
     end
-
-    --示值面板随OperatePanel状态
-    --ShowPanel:SetActive(OperatePanel.activeSelf)
-    ShowPanel:SetActive(false)
 
     --操作按钮置反
     selfButton.gameObject:SetActive(not selfButton.gameObject.activeSelf)
@@ -1670,13 +1893,6 @@ end
 
 --
 --菜单按钮点击
---[[
-	*text 所点击的按钮内容
-	*image 按钮所在菜单栏的标识图
-	*signal 标识按钮类型以及方向
-	* 声明所在的轴方向
-	*value Pos或者Rot的值
-]]
 function CROSS.ClickMenuButton(text, image, signal, value)
     --设置当前操作标识
     currentSignal = signal
@@ -1690,9 +1906,9 @@ function CROSS.ClickMenuButton(text, image, signal, value)
     ResetMenuButton()
 
     --设置点击按钮Text为selectedColor Hex:4285F4FF 66 133 244
-    text.color = selectedColor
+    text.color = COMMON.selectedColor
     --所选归属栏显示被选中为pre_color
-    image.color = selectedColor
+    image.color = COMMON.selectedColor
 
     --显示SliderPanel
     NotifySliderPanel(true, text.text, signal, value)
@@ -1727,12 +1943,8 @@ function SetCurrentSection(section)
     --TODO;
     assert(coroutine.resume(Coroutine_Cross))
 
-    --
-    --Pos = QuadArr[currentSection][1]
-    --Rot = QuadArr[currentSection][2]
-
-    --更新示值面板
-    UpdateShowPanel()
+    --获取切面的属性
+    GetQuadsInfo()
 
     --设置切面Toggle值
     GetSectionVisibility()
@@ -1923,9 +2135,6 @@ end
 function UpdateShowPanel()
     --获取切面的属性
     GetQuadsInfo()
-    --
-    ShowPos.text = "Y:" .. string.format("%.1f", tonumber(Slider.value))
-    ShowRot.text = "X:" .. string.format("%.1f", QuadArr[currentSection][2].x) .. " Z:" .. string.format("%.1f", QuadArr[currentSection][2].y)
 end
 
 --[DDenry]重置切面按钮,*type 表示当前操作的按钮
@@ -1953,26 +2162,23 @@ end
 
 --[DDenry]重置所有菜单按钮选择
 function ResetMenuButton()
-    --PosPanelImage,RotPanelImage重置为black
-    PosPanelImage.color = unselectedColor
-    RotPanelImage.color = unselectedColor
 
     --隐藏SliderPanel
     NotifySliderPanel(false)
 
-    --遍历菜单中互斥的buttonText并置为white
+    --遍历菜单中互斥的buttonText并置为normal
     for i, v in pairs(menuDeselectButton) do
-        v.color = Color.white
+        v.gameObject.transform:Find("Text"):GetComponent("Text").color = COMMON.normalColor
     end
 end
 
 --[DDenry]
 --通知SliderPanel
 --[[
-	*state Slider要置为的状态
-	*text 所点菜单按钮的内容
-	*signal 标识按钮类型以及方向
-	*value Pos或者Rot的值
+    *state Slider要置为的状态
+    *text 所点菜单按钮的内容
+    *signal 标识按钮类型以及方向
+    *value Pos或者Rot的值
 ]]
 function NotifySliderPanel(state, text, signal, value)
 
@@ -2014,9 +2220,6 @@ function NotifySliderPanel(state, text, signal, value)
             SliderValueChanged(value)
         end)
 
-        --设置SliderText
-        TextName.text = text
-
         --如果是Pos操作，则置吸附状态为false
         if flag then
             operateType = false
@@ -2024,14 +2227,11 @@ function NotifySliderPanel(state, text, signal, value)
 
         --设置显示值
         TextValue.text = tostring(value)
-        ShowedValue.text = tostring(value)
-        InputField.text = tostring(value)
 
         --隐藏Slider
     else
         SliderPanel:SetActive(false)
     end
-
 end
 
 --[DDenry]Slider监听
@@ -2043,10 +2243,6 @@ function SliderValueChanged(value)
     local str_value = string.format("%.1f", value)
 
     TextValue.text = str_value
-
-    --显示当前value
-    ShowedValue.text = str_value
-    InputField.text = str_value
 
     --更新当前切面属性
     UpdateCurrentSection(str_value)
@@ -2161,7 +2357,7 @@ function JudgeInput(value)
 end
 
 --重置所有变量
-function ResetAllVariables()
+function CROSS.ResetAllVariables()
 
     --标识当前操作切面
     currentSection = 0
@@ -2178,8 +2374,6 @@ function ResetAllVariables()
 
     --切面模式状态
     updateCrossState = false
-
-    --
 
     --设置切面Pos范围
     RangePos = {
@@ -2316,7 +2510,7 @@ function CROSS.Prepare()
     Quad1 = SectionXY.section.transform:Find("Quad").gameObject
 
     --如果绑定了Animator，则去除
-    if haveSelfOwnedAnimation then
+    if MENU.functionsList['SELF_ANIMATION'] then
         Destroy(SectionXY.crossedGameObject:GetComponentInChildren(typeof(CS.UnityEngine.Animator)))
         print("Removed animator on substitute")
     end
@@ -2396,7 +2590,7 @@ function CROSS.InitCrossFunction()
         end
 
         --显示切面UI
-        CrossUI:SetActive(true)
+        --CrossUI:SetActive(true)
 
         --不显示原始模型
         OriObject:SetActive(false)
@@ -2416,8 +2610,11 @@ end
 
 --[DDenry]重置切面功能
 function CROSS.ResetCrossFunction()
+    --隐藏切面选择面板
+    CrossOperator:SetActive(false)
+
     --重置所有变量
-    ResetAllVariables()
+    CROSS.ResetAllVariables()
 
     --重置切面按钮
     ResetSectionButton(1)
@@ -2426,19 +2623,22 @@ function CROSS.ResetCrossFunction()
 
     --update计算shader置否
     updateCrossState = false
+
     --隐藏CrossUI
-    CrossUI:SetActive(false)
+    CrossOperator:SetActive(false)
+
     --隐藏OperatePanel
-    OperatePanel:SetActive(false)
+    FunctionChoose:SetActive(false)
+
     --隐藏SliderPanel
     SliderPanel:SetActive(false)
-    --隐藏ShowPanel
-    ShowPanel:SetActive(false)
+
     --
     if substitute ~= nil then
         --隐藏所有切面以及替代模型
         substitute:SetActive(false)
     end
+
     --显示原始模型
     OriObject:SetActive(true)
 end
@@ -2499,107 +2699,12 @@ end
 --
 function ondisable()
     print("SubController_Disable")
-    --
-    _Global:SetData("haveMulModel", "")
-
-    --重置模型scale
-    GameObject.Find("Root/Models").transform.localScale = Vector3.one
-
-    --复位按钮Invoke
-    ButtonReset0.onClick:Invoke()
-
-    Contents.transform.localRotation = Quaternion.Euler(Vector3.zero)
 
     --
-    SwitchButton.gameObject:SetActive(false)
+    PROCESS.ResetSceneState()
 
-    --初始化按钮状态
-    ButtonBoomImage.color = clickedColor
-    ButtonBoomText.color = clickedColor
-    ButtonCrossImage.color = clickedColor
-    ButtonCrossText.color = clickedColor
-    ButtonPartImage.color = clickedColor
-    ButtonPartText.color = clickedColor
-    ButtonPointImage.color = unclickedColor
-    ButtonPointText.color = unclickedColor
-    ButtonPoint.interactable = false
-    ButtonResetImage.color = clickedColor
-    ButtonResetText.color = clickedColor
-    ButtonReset0.gameObject:SetActive(false)
-
-    --重置当前模式为0
-    currentMode = 0
-
-    --工具菜单栏隐藏
-    toolMenu:SetActive(false)
-    CrossUI:SetActive(false)
-
-    --动画播放按钮隐藏
-    ButtonAnimationPlay.gameObject:SetActive(false)
-    --动画暂停按钮隐藏
-    ButtonAnimationPause.gameObject:SetActive(false)
     --
-    ButtonExplosive.interactable = true
-    ButtonExplosiveText.color = textNoTransparentColor
-    ButtonRestored.interactable = false
-    ButtonRestoredText.color = textHalfTransparentColor
-
-    --如果实例的对象存在，则销毁
-    if (SectionXY ~= nil) then
-        SectionXY:Destructor()
-
-        SectionXY = nil
-        Quad1 = nil
-    end
-
-    if SectionXZ ~= nil then
-        SectionXZ:Destructor()
-
-        SectionXZ = nil
-        Quad2 = nil
-    end
-
-    if SectionYZ ~= nil then
-        SectionYZ:Destructor()
-
-        SectionYZ = nil
-        Quad3 = nil
-    end
-
-    --销毁所有标注点
-    if havePoint then
-        for i = 0, #table_prefab_point do
-            Destroy(table_prefab_point[i].gameObject)
-        end
-    end
-
-    --重置场景
-    ResetScene()
-
-    if animation ~= nil then
-        animation = nil
-    end
-
-    --释放dictionary
-    for i = 0, #animationGameObjectId do
-        _Global:ReleseData(animationGameObjectId[i])
-        _Global:ReleseData("position_" .. animationGameObjectId[i])
-        _Global:ReleseData("rotation_" .. animationGameObjectId[i])
-        _Global:ReleseData("scale_" .. animationGameObjectId[i])
-    end
-
-    --关闭手势操作
-    FingerOperator_Model.enabled = false
-
-    --标识爆炸和拆解为false
-    defaultViewTransform = {}
-    haveViewPort = false
-    haveBoom = false
-    isBoom = false
-    havePart = false
-    havePoint = false
-    haveCross = false
-    haveSelfOwnedAnimation = false
+    PROCESS.DisposeSceneState()
 
     collectgarbage("collect")
     --
@@ -2618,4 +2723,5 @@ function ondestroy()
     PROCESS = nil
     StudioData = nil
     CROSS = nil
+    MENU = nil
 end
