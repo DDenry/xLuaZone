@@ -1864,6 +1864,10 @@ function CROSS.ControlMenu(selfButton, otherButton, type)
         --重置非操作切面按钮
         ResetSectionButton(type)
 
+        --TODO:根据所选type设置面板位置(功能已实现，但被需求否决[微笑])
+        --FunctionChoose:GetComponent("RectTransform").anchorMin = Vector2((type - 1) / 3, FunctionChoose:GetComponent("RectTransform").anchorMin.y)
+        --FunctionChoose:GetComponent("RectTransform").anchorMax = Vector2(type / 3, FunctionChoose:GetComponent("RectTransform").anchorMax.y)
+
         --显示OperatePanel
         FunctionChoose:SetActive(true)
         --OperatePanel:SetActive(true)
@@ -1871,9 +1875,9 @@ function CROSS.ControlMenu(selfButton, otherButton, type)
         --调用SetCurrentSection重置变量值
         SetCurrentSection(type)
     else
+        --隐藏操作面板
         FunctionChoose:SetActive(false)
-        --OperatePanel:SetActive(false)
-        --TODO:
+        --TODO:目前模式为单切面模式
         SectionXY.section:SetActive(false)
         SectionXY.crossedGameObject:SetActive(false)
         SectionXZ.section:SetActive(false)

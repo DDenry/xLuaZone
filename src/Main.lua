@@ -783,27 +783,33 @@ function PROCESS.SetUIAdapter()
         screenHeight = screenHeight - screenWidth
     end
 
-    --屏幕比大于2.0
-    if screenHeight / screenWidth >= 1.8 then
+    --屏幕比大于1.8
+    if screenHeight / screenWidth >= 2.0 then
         LogInfo("ScreenAdapter", "Value of height/width is " .. screenHeight / screenWidth)
         --设置默认偏移量
         local offset = 50
         --TODO:添加要适配的UI组件
         local Viewport = PageList.transform:Find("TileView/ScrollRect/Viewport").gameObject
+        local ToolMenu = GameObject.Find("Root/UI/Main UI Canvas/Tools Panel/ToolMenu")
+        local Tool_Menu = ToolMenu.transform:Find("Tool Menu").gameObject
         local UIAdapter = {
-            PreLoad,Viewport,
+            PreLoad, Viewport, ToolMenu, Tool_Menu, Panel
         }
         --TODO:判断当前UI扩展或者偏移
         for i, view in pairs(UIAdapter) do
             if view.name == "PreLoad" then
-                view.transform:Find("Text"):GetComponent("RectTransform").offsetMin = CS.UnityEngine.Vector2(offset, 0)
-                view.transform:Find("Text"):GetComponent("RectTransform").offsetMax = CS.UnityEngine.Vector2(-offset, 0)
+                view.transform:Find("Text"):GetComponent("RectTransform").offsetMin = CS.UnityEngine.Vector2(offset, view.transform:Find("Text"):GetComponent("RectTransform").offsetMin.y)
+                view.transform:Find("Text"):GetComponent("RectTransform").offsetMax = CS.UnityEngine.Vector2(-offset, view.transform:Find("Text"):GetComponent("RectTransform").offsetMax.y)
             elseif view.name == "Viewport" then
-                view:GetComponent("RectTransform").offsetMin = CS.UnityEngine.Vector2(offset, 0)
-                view:GetComponent("RectTransform").offsetMax = CS.UnityEngine.Vector2(-offset, 0)
-            elseif view.name == "" then
-            elseif view.name == "" then
-            elseif view.name == "" then
+                view:GetComponent("RectTransform").offsetMin = CS.UnityEngine.Vector2(offset, view:GetComponent("RectTransform").offsetMin.y)
+                view:GetComponent("RectTransform").offsetMax = CS.UnityEngine.Vector2(-offset, view:GetComponent("RectTransform").offsetMax.y)
+            elseif view.name == "ToolMenu" then
+                view:GetComponent("RectTransform").offsetMax = CS.UnityEngine.Vector2(-offset, view:GetComponent("RectTransform").offsetMax.y)
+            elseif view.name == "Tool Menu" then
+                view:GetComponent("RectTransform").offsetMax = CS.UnityEngine.Vector2(offset, view:GetComponent("RectTransform").offsetMax.y)
+                view:GetComponent("VerticalLayoutGroup").padding.left = offset
+            elseif view.name == "Panel" then
+                view:GetComponent("RectTransform").offsetMax = CS.UnityEngine.Vector2(offset - offset * view:GetComponent("RectTransform").anchorMax.x, view:GetComponent("RectTransform").offsetMax.y)
             end
         end
     end
