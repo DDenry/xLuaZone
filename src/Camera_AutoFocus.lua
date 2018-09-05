@@ -38,6 +38,12 @@ function onenable()
 
         assert(coroutine.resume(coroutine.create(function()
             repeat
+
+                if CS.Vuforia.VuforiaBehaviour.Instance == nil or CS.Vuforia.VuforiaBehaviour.Instance.enabled == false then
+                    assert(coroutine.resume(COROUTINE_CAMERA_AUTOFOCUS, false))
+                    return
+                end
+
                 if coroutine.status(COROUTINE_CAMERA_AUTOFOCUS) == "suspended" then
                     assert(coroutine.resume(COROUTINE_CAMERA_AUTOFOCUS, true))
                     yield_return(CS.UnityEngine.WaitForSeconds(3.0))

@@ -249,12 +249,7 @@ COMMON.nonClickable = {
 }
 
 --选中状态颜色
-COMMON.selectedColor = {
-    r = 66 / 255,
-    g = 133 / 255,
-    b = 244 / 255,
-    a = 1
-}
+COMMON.selectedColor = _Global:GetData("themeColor")
 
 --
 local textHalfTransparentColor = {
@@ -587,14 +582,6 @@ function StudioData.LoadPointData()
         --设置标准点按钮可点击
         MENU.functionsList['POINT'] = true
 
-        --判断是否自动显示标注点
-        if _Global:GetData("autoPROCESS.ShowPoint") ~= nil then
-            if _Global:GetData("autoPROCESS.ShowPoint"):toboolean() then
-                print("Points will auto show!")
-                --打开标注点
-                PROCESS.ToolMenuButtonClick(ButtonPoint, "POINT")
-            end
-        end
     else
         --不存在标注点
         MENU.functionsList['POINT'] = false
@@ -863,6 +850,16 @@ function MENU.PrepareMenu()
         elseif i == "POINT" then
             PanelPoint:SetActive(item)
             PanelPointSubstitute:SetActive(not item)
+
+            --判断是否自动显示标注点
+            if _Global:GetData("autoShowPoint") ~= nil then
+                if _Global:GetData("autoShowPoint"):toboolean() then
+                    print("Points will auto show!")
+                    --打开标注点
+                    ButtonPoint.onClick:Invoke()
+                end
+            end
+
             --虚实景切换
         elseif i == "VIEW_TRANSFER" then
             --只有AR&VR模式下才有该功能
@@ -1140,11 +1137,7 @@ function COMMON.RegisterListener()
         --显示多模型列表
         GameObject.Find("Root/UI/Main UI Canvas").transform:Find("MulModelList/ListView").gameObject:SetActive(true)
     end)
-    --点击背板隐藏多模型列表
-    GameObject.Find("Root/UI/Main UI Canvas").transform:Find("MulModelList/Shadow").gameObject:GetComponent("Button").onClick:AddListener(function()
-        GameObject.Find("Root/UI/Main UI Canvas").transform:Find("MulModelList/Shadow").gameObject:SetActive(false)
-        GameObject.Find("Root/UI/Main UI Canvas").transform:Find("MulModelList/ListView").gameObject:SetActive(false)
-    end)
+
     --
     ButtonShowModel.onClick:AddListener(function()
         CallbackFromWebToUnity_MulModelPage._webView:Show(false, CS.UniWebViewTransitionEdge.Top)
@@ -1514,22 +1507,21 @@ function PROCESS.HandleMenuButton(type, button, mode)
 
         if mode == "RESET" then
             ButtonReset0.gameObject:SetActive(false)
-        else
-            --
-            if mode == "BOOM" then
-                PROCESS.ResetBoomFunction()
-            elseif mode == "PART" then
-                PROCESS.ResetPartFunction()
+        elseif mode == "POINT" then
+            PROCESS.ShowPoint(false)
+        elseif mode == "BOOM" then
+            PROCESS.ResetBoomFunction()
+        elseif mode == "PART" then
+            PROCESS.ResetPartFunction()
 
-            elseif mode == "CROSS" then
-                --隐藏所有切面及模型替代
-                CROSS.ResetCrossFunction()
-            end
+        elseif mode == "CROSS" then
+            --隐藏所有切面及模型替代
+            CROSS.ResetCrossFunction()
+        end
 
-            --判断当前是否需要显示默认功能(自带动画)
-            if MENU.functionsList['SELF_ANIMATION'] then
-                StudioData.ShowAnimatorFunction(true)
-            end
+        --判断当前是否需要显示默认功能(自带动画)
+        if MENU.functionsList['SELF_ANIMATION'] then
+            StudioData.ShowAnimatorFunction(true)
         end
     end
 end
@@ -1820,6 +1812,8 @@ function PROCESS.CallToolFunction(mode)
 
     --TODO:标注点的操作
     if mode == "POINT" then
+        --TODO:暂时先这么做
+        PROCESS.ShowPoint(true)
         return
     end
 
@@ -2499,6 +2493,11 @@ local substitute
 --
 function CROSS.Prepare()
     print("Replacing Cross Shader")
+
+    --
+    Section1On:GetComponent("Text").color = COMMON.selectedColor
+    Section2On:GetComponent("Text").color = COMMON.selectedColor
+    Section3On:GetComponent("Text").color = COMMON.selectedColor
 
     --生成substitute,并与OriObject保持相同transform
     if OriObject.transform.parent:Find("Substitute") == nil then

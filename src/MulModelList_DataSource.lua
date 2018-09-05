@@ -20,23 +20,39 @@ local PROCESS = {}
 
 local loadedItems
 
+local defaultTextColor = {
+    r = 118 / 255.0,
+    g = 118 / 255.0,
+    b = 118 / 255.0,
+    a = 1
+}
+
+--
 local unSelectedColor = {
     r = 230 / 255,
     g = 230 / 255,
     b = 230 / 255,
     a = 1
 }
-local selectedColor = {
-    r = 237 / 255,
-    g = 237 / 255,
-    b = 237 / 255,
-    a = 1
-}
+
+local Shadow = self.transform:Find("Shadow").gameObject
+local ShadowButton = Shadow:GetComponent("Button")
+
+local selectedColor = _Global:GetData("themeColor")
+
+local currentSelectedItem
 
 function onenable()
     print("MulModelList_Enable!")
     --初始化
     loadedItems = {}
+
+    --点击背板隐藏多模型列表
+    ShadowButton.onClick:AddListener(function()
+        Shadow:SetActive(false)
+        self.transform:Find("ListView").gameObject:SetActive(false)
+    end)
+
     --获取所选PageName
     local selectedPageName = ((_Global:GetData("selectedPageName") ~= nil) and _Global:GetData("selectedPageName")) or ""
     --生成列表项
@@ -67,19 +83,26 @@ function PROCESS.GenerateItems(selectedPageName)
             --第一项默认为选中状态
             if i == 0 then
                 _item:GetComponent("Image").color = selectedColor
+                _item.transform:Find("Text").gameObject:GetComponent("Text").color = Color.white
+                --
+                currentSelectedItem = _item
             end
 
             --_item.transform:SetParent(DefaultItem.transform.parent)
             _item.transform:Find("Text"):GetComponent("Text").text = "   " .. value[i].ModelName .. "   "
-            
+
+            --多模型列表点击
             _item:GetComponent("Button").onClick:AddListener(function()
-                if _item:GetComponent("Image").color.r <= selectedColor.r then
+                --
+                if currentSelectedItem ~= _item then
                     --重置所有Item为未选中状态
                     for i, _item in ipairs(loadedItems) do
                         _item:GetComponent("Image").color = unSelectedColor
+                        _item.transform:Find("Text"):GetComponent("Text").color = defaultTextColor
                     end
                     --自身Item变为选中
                     _item:GetComponent("Image").color = selectedColor
+                    _item.transform:Find("Text"):GetComponent("Text").color = Color.white
 
                     local url = "pagelist://post?";
                     local _url = url .. "sceneName=" .. value[i].SceneName .. "&pageName=" .. value[i].PageName .. "&modelName=" .. value[i].ModelName .. "&haveMulModel=False&sectionNum=" .. value[i].SortingName
@@ -92,8 +115,12 @@ function PROCESS.GenerateItems(selectedPageName)
                 self.transform:Find("ListView").gameObject:SetActive(false)
                 --隐藏Shadow
                 self.transform:Find("Shadow").gameObject:SetActive(false)
+
+                --
+                currentSelectedItem = _item
             end)
         end
+
         --隐藏默认Item
         DefaultItem:SetActive(false)
 
@@ -111,38 +138,40 @@ function PROCESS.GenerateItems(selectedPageName)
 end
 
 function AutoSlide(rectTransform)
-    --
-    if rectTransform ~= nil then
-        if self.transform:Find("Shadow").gameObject.activeSelf then
+    if self.gameObject.activeSelf then
+        --
+        if rectTransform ~= nil then
             --需要滑动
             if rectTransform.sizeDelta.x > 0 then
-                --从左向右滑动
-                if rectTransform.anchoredPosition.x <= -rectTransform.sizeDelta.x then
-                    rectTransform.anchoredPosition = Vector2(0, rectTransform.anchoredPosition.y)
+                if self.transform:Find("Shadow").gameObject.activeSelf then
+                    --从左向右滑动
+                    if rectTransform.anchoredPosition.x <= -rectTransform.sizeDelta.x then
+                        rectTransform.anchoredPosition = Vector2(0, rectTransform.anchoredPosition.y)
+                    else
+                        rectTransform.anchoredPosition = Vector2(rectTransform.anchoredPosition.x - 10, rectTransform.anchoredPosition.y)
+                    end
+                    --回归到最初位置
                 else
-                    rectTransform.anchoredPosition = Vector2(rectTransform.anchoredPosition.x - 10, rectTransform.anchoredPosition.y)
+                    rectTransform.anchoredPosition = Vector2(0, rectTransform.anchoredPosition.y)
                 end
+            else
+                --
+                yield_return(CS.UnityEngine.WaitForSeconds(1.0))
             end
+            --
+            yield_return(CS.UnityEngine.WaitForSeconds(1))
+
+            --递归
+            assert(coroutine.resume(coroutine.create(function()
+                if rectTransform ~= nil then
+                    AutoSlide(rectTransform)
+                end
+            end)))
         end
-        --
-        yield_return(CS.UnityEngine.WaitForSeconds(1))
-        --递归
-        assert(coroutine.resume(coroutine.create(function()
-            if rectTransform ~= nil then
-                AutoSlide(rectTransform)
-            end
-        end)))
     end
 end
 
 function update()
-    if self.transform:Find("Shadow").gameObject.activeSelf then
-        if Input.GetKeyUp(CS.UnityEngine.KeyCode.Mouse0) then
-            for i, _item in ipairs(loadedItems) do
-                _item:GetComponent("Button").interactable = true
-            end
-        end
-    end
 end
 
 function ondisable()

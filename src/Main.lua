@@ -369,6 +369,13 @@ local appVersionType = APPTYPE.DEBUG
 --配置文件参数
 local trackerType = "Once"
 local sceneType = "AR&VR"
+--默认主题色为酸橙绿
+local themeColor = {
+    r = 50 / 255.0,
+    g = 205 / 255.0,
+    b = 50 / 255.0,
+    a = 1
+}
 local autoShowPoint = false
 local haveViewTransfer = false
 local defaultView = "Fake"
@@ -522,7 +529,6 @@ function start()
                 local callback = select(1, ...)
                 --
                 coroutine.yield(callback:Invoke("Load subapp_config"))
-                --yield_return(callback:Invoke("Load subapp_config"))
             end)
             --
             assert(coroutine.resume(COROUTINE_LoadSubAppConfig, TaskDoneListener))
@@ -932,13 +938,17 @@ function PROCESS.TextLoader(filePath)
     local fileInfo = FileInfo(_filePath)
     local fileExists = false
     local www = CS.UnityEngine.WWW(filePath)
+
     yield_return(www)
+
     if www.error == nil then
         LogInfo("File " .. fileInfo.Name .. "Exists!")
         fileExists = true
     else
         fileExists = false
+        LogWarning("File " .. fileInfo.Name .. " Not Exists!")
     end
+
     --子应用配置文件
     if fileInfo.Name == "subapp_config.json" then
         if fileExists then
@@ -968,6 +978,9 @@ function PROCESS.TextLoader(filePath)
         end
         --AllPageInfo.json
     elseif fileInfo.Name == "AllPageInfo.json" then
+        --
+        PageListScrollRect.transform:Find("Viewport/PageItem/IconContainer/Signal"):GetComponent("Image").color = themeColor
+
         if fileExists then
             --AllPageInfo.json存在 回调
             CALLBACK.ExistAllPageInfo()
@@ -977,6 +990,9 @@ function PROCESS.TextLoader(filePath)
             --AllPageInfo.json不存在 回调
             CALLBACK.NotExistAllPageInfo()
         end
+        --
+    else
+        SSMessageManager:ReceiveMessage("ThrowErrorException", fileInfo.Name .. ":" .. www.error)
     end
 end
 
@@ -1070,6 +1086,20 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
                 _Global:SetData("autoShowPoint", autoShowPoint)
             else
                 _Global:SetData("autoShowPoint", false)
+            end
+            --主题颜色 themeColor
+            if (sceneConfigTxt[i][2] ~= nil) then
+                local _, _, _, _color = tostring(sceneConfigTxt[i][2]):find("([\"'])(.-)%1")
+                local r = _color:sub(1, _color:find(',') - 1)
+                local g = _color:sub(_color:find(',') + 1, _color:find(',', _color:find(',') + 1) - 1)
+                local b = _color:sub(_color:find(',', _color:find(',') + 1) + 1, _color:find(',', _color:find(',', _color:find(',') + 1) + 1) - 1)
+                local a = _color:reverse():sub(1, _color:reverse():find(',') - 1):reverse()
+
+                --主题颜色
+                themeColor.r = r / 255.0
+                themeColor.g = g / 255.0
+                themeColor.b = b / 255.0
+                themeColor.a = a / 255.0
             end
         elseif tostring(sceneConfigTxt[i]):find("haveViewTransfer") ~= nil then
             --是否有视图切换的功能
@@ -1168,6 +1198,9 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
             end
         end
     end
+
+    --
+    _Global:SetData("themeColor", themeColor)
 
     --
     LogInfo("haveViewTransfer", haveViewTransfer)

@@ -16,20 +16,19 @@ local UploadButton = UploadPanel.transform:Find("BG/Upload"):GetComponent("Butto
 
 function start()
     print("ErrorController_Start!")
+
     --关闭所有Lua脚本
     local rootGameObjects = SceneManager.GetActiveScene():GetRootGameObjects()
     for i = 0, rootGameObjects.Length - 1 do
-        local xluBehaviours = rootGameObjects[i]:GetComponentsInChildren(typeof(CS.XLuaBehaviour))
-        for j = 0, xluBehaviours.Length - 1 do
+        local xluaBehaviours = rootGameObjects[i]:GetComponentsInChildren(typeof(CS.XLuaBehaviour))
+        for j = 0, xluaBehaviours.Length - 1 do
             --
-            xluBehaviours[j].enabled = false
+            if xluaBehaviours[j].gameObject.name ~= self.name then
+                xluaBehaviours[j].gameObject:SetActive(false)
+                xluaBehaviours[j].enabled = false
+            end
         end
     end
-end
-
---
-function ondisable()
-    print("ErrorController_Disable!")
 
     --退出按钮
     if _Global:GetData("RunningType") == "Single" then
@@ -43,10 +42,6 @@ function ondisable()
         end)
     end
 
-    --TODO:关闭场景中AR相机
-    if Vuforia.VuforiaBehaviour.Instance ~= nil then
-        Vuforia.VuforiaBehaviour.Instance.enabled = false
-    end
 
     --关闭背景相机
     if CameraBG.activeSelf then
@@ -85,5 +80,16 @@ function ondisable()
         UploadPanel:SetActive(false)
         BugReporter:SetActive(false)
     end)
+end
 
+function update()
+    --关闭场景中AR相机
+    if Vuforia.VuforiaBehaviour.Instance ~= nil then
+        Vuforia.VuforiaBehaviour.Instance.enabled = false
+    end
+end
+
+--
+function ondisable()
+    print("ErrorController_Disable!")
 end
