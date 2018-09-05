@@ -2494,6 +2494,7 @@ local substitute
 function CROSS.Prepare()
     print("Replacing Cross Shader")
 
+    TextValue.color = COMMON.selectedColor
     --
     Section1On:GetComponent("Text").color = COMMON.selectedColor
     Section2On:GetComponent("Text").color = COMMON.selectedColor
