@@ -413,6 +413,7 @@ local listenerRegistered = {}
 local urlParameters = {}
 local doType
 local urlHead
+local pageIndex
 local assetBundle_url
 local sceneName
 local pageName
@@ -462,6 +463,7 @@ end
 --
 function start()
     LogInfo("MainController_Start!")
+
     --设置垃圾自动回收
     collectgarbage("setpause", 100)
     collectgarbage("setstepmul")
@@ -494,8 +496,6 @@ function start()
 
     --设置资源的绝对路径
     _Global:SetData("AbsolutePath", EzStoryboardPlayer.Path)
-
-    --SSMessageManager:ReceiveMessage("Require","a.lua")
 
     COMMON.RegisterListener(TaskDoneListener, PROCESS.TaskDone)
 
@@ -554,7 +554,7 @@ function start()
     }
     , nil, 0)                    :PostInQueue()
 
-    --
+    --准备场景
     Task           :new("PrepareScene",
             function()
                 --设置场景类型
@@ -1063,6 +1063,7 @@ function CALLBACK.AllPageInfoLoaded()
 
 end
 
+
 --加载场景配置文件
 function CALLBACK.SceneConfigLoaded(sceneConfigJson)
     LogInfo("SceneConfig", sceneConfigJson)
@@ -1237,6 +1238,10 @@ function CALLBACK.ConfigJSONLoaded(configJson)
     MainTitleText.text = childAppName
     MainText.text = childAppName
 
+    --获取子应用进度
+    COMMON.Progress = PlayerPrefs.GetString(childAppId .. "UseProgress", "")
+
+    LogInfo("UseProgress", COMMON.Progress)
 end
 
 --识别物与模型对应的JSON回调
@@ -1320,9 +1325,47 @@ function CALLBACK.PageListSelected(url)
                     PROCESS.SetScanModelParameters()
                     --开启模型浏览
                     PROCESS.StartScanModelScene()
+                    --更新子应用进度
+                    PROCESS.UpdateUseProgress()
                 end
             end
     , nil, 1):PostInQueue()
+end
+
+--更新子应用的书页被读取进度
+function PROCESS.UpdateUseProgress()
+    --获取到书页数量
+    local dataSource = CustomTileViewDataSource:GetComponent(typeof(CS.SubScene.CustomTileView)).DataSource
+
+    if COMMON.Progress == "" then
+        for i = 1, dataSource.Count do
+            COMMON.Progress = COMMON.Progress .. "0"
+        end
+    else
+        --判断服务器端进度与实际进度
+        if COMMON.Progress:len() ~= dataSource.Count then
+            LogWarning("UseProgress", "COMMON.Progress and CustomTileView.DataSource.Count are not matched!")
+        end
+    end
+
+    --如果存在页面下标
+    if pageIndex ~= nil then
+        for i = 1, COMMON.Progress:len() do
+            if (tonumber(pageIndex) + 1) == i then
+                local _before = COMMON.Progress:sub(1, i - 1)
+                local _after = COMMON.Progress:sub(i + 1)
+                COMMON.Progress = _before .. "1" .. _after
+                break
+            end
+        end
+    end
+
+    --
+    pageIndex = nil
+
+    --
+    PlayerPrefs.SetString(childAppId .. "UseProgress", COMMON.Progress)
+    LogInfo("UseProgress", "Progress update to " .. COMMON.Progress)
 end
 
 --加载PageListType_H5
@@ -1451,7 +1494,6 @@ function PROCESS.SwitchScene()
     elseif sceneType == "AR&VR" then
 
     end
-
 
     --需要加载marker.json
     if sceneType ~= "OnlyVR" then
@@ -2228,16 +2270,25 @@ end
 
 --解析URL,分离所需参数
 function PROCESS.URLInterpreter(url)
-    --pagelist
+    --pagelist://do?#index|sceneName=assetBundlePath&modelName=modelName&haveModels=htmlPath&sectionNum=sectionNum
     local url_head_pos = url:find('://')
     local url_head = url:sub(1, url_head_pos - 1)
+    --获取到urlHead
     urlParameters['urlHead'] = url_head
     local sub_url_head = url:gsub(url_head .. "://", "")
     local do_type = sub_url_head:sub(1, sub_url_head:find('?') - 1)
+    --获取到doType
     urlParameters['doType'] = do_type
 
     --?sceneName='sceneName'&pageName='pageName'&modelName='modelName'&haveMulModel='haveMulModel'&sectionNum='sectionNum'
     local sub_do_type = sub_url_head:gsub(do_type, ""):sub(2)
+    --判断是否存在#index
+    if sub_do_type:find('#') ~= nil then
+        urlParameters['pageIndex'] = sub_do_type:sub(2, sub_do_type:find("|") - 1)
+        --
+        sub_do_type = sub_do_type:sub(sub_do_type:find("|") + 1)
+    end
+    --
     for i, parameter in pairs(sub_do_type:split('&')) do
         --argument=sceneName='sceneName'
         local parameter_name = parameter:sub(1, parameter:find("=") - 1)
@@ -2256,6 +2307,7 @@ function PROCESS.SetScanModelParameters()
     if count > 0 then
         doType = (urlParameters['doType'] ~= nil and urlParameters['doType']) or nil
         urlHead = (urlParameters['urlHead'] ~= nil and urlParameters['urlHead']) or nil
+        pageIndex = (urlParameters['pageIndex'] ~= nil and urlParameters['pageIndex']) or nil
         sceneName = (urlParameters['sceneName'] ~= nil and urlParameters['sceneName']) or nil
         pageName = (urlParameters['pageName'] ~= nil and urlParameters['pageName']) or nil
         modelName = (urlParameters['modelName'] ~= nil and urlParameters['modelName']) or nil
@@ -2266,6 +2318,7 @@ function PROCESS.SetScanModelParameters()
     _Global:SetData("sceneName", sceneName)
     --
     _Global:SetData("selectedPageName", pageName)
+
     --
     _Global:SetData("_sectionNum", sectionNum)
     --
