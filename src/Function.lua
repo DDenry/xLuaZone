@@ -1068,7 +1068,7 @@ function PROCESS.InitDataTable()
     --初始化
     defaultViewTransform = {
         localPosition = Vector3.zero,
-        localRotation = Quaternion.Euler(Vector3.zero),
+        localRotation = Quaternion.Euler(Vector3(-20, -30, 10)),
         localScale = Vector3.one
     }
 
@@ -1207,6 +1207,8 @@ function COMMON.RegisterListener()
         ButtonAnimationPause.gameObject:SetActive(not ButtonAnimationPause.gameObject.activeSelf)
         --speed = 0 表示暂停动画播放
         animation:Stop()
+        --暂停所有DOTween
+        CS.DG.Tweening.DOTween.PauseAll()
     end)
 
     --[DDenry]********************************************************************************
@@ -1521,7 +1523,10 @@ function PROCESS.HandleMenuButton(type, button, mode)
 
         --判断当前是否需要显示默认功能(自带动画)
         if MENU.functionsList['SELF_ANIMATION'] then
-            StudioData.ShowAnimatorFunction(true)
+            --
+            if table.concat(MENU.functionsList['CURRENT_FUNCTION'], "") == "SELF_ANIMATION" then
+                StudioData.ShowAnimatorFunction(true)
+            end
         end
     end
 end

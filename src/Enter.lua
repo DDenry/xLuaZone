@@ -7,6 +7,13 @@ local GameObject = CS.UnityEngine.GameObject
 local Destroy = CS.UnityEngine.Object.Destroy
 local SSMessageManager = CS.SubScene.SSMessageManager.Instance
 local yield_return = (require 'cs_coroutine').yield_return
+
+--
+function onenable()
+    print("Enter_Enable!")
+    --检查更新
+end
+
 --
 function start()
     assert(coroutine.resume(coroutine.create(function()
@@ -30,7 +37,7 @@ function start()
                 ]]
 
         --设置Loading图案
-        local www = CS.UnityEngine.WWW("http://gzdl.chu-jiao.com/Loading.jpg?¿¿¿" .. math.random())
+        local www = CS.UnityEngine.WWW("http://gzdl.chu-jiao.com/Loading.jpg?¿±¡" .. math.random())
 
         yield_return(www)
 
