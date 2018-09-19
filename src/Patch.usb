@@ -1,0 +1,57 @@
+--TODO: Here's patch codes.
+---2018年9月19日17点30分
+local GameObject = CS.UnityEngine.GameObject
+local content = "The solution will come out soon while the bug checked out has fixed!"
+
+local version_patch = "1.1"
+
+---
+--- 补丁版本号：1.1
+--- 该版本兼容场景版本号1.0/1.1的场景
+---
+
+--显示错误提示，退出子应用
+local ErrorShow =
+    function()
+        --
+        local overlayCanvas = GameObject.Find("Root/UI/Overlay Canvas")
+        overlayCanvas.transform:Find("ErrorUI").gameObject:SetActive(true)
+        overlayCanvas.transform:Find("PreLoad").gameObject:SetActive(true)
+        overlayCanvas.transform:Find("PreLoad/Text").gameObject:SetActive(true)
+        overlayCanvas.transform:Find("PreLoad/Text"):GetComponent("Text").text = content
+    end
+
+--判断版本号，是否需要应用该补丁
+if self.version ~= nil then
+    --
+    local V = tonumber(self.version:sub(1,self.version:find(".")))
+    local C = tonumber(self.version:sub(self.version:find(".") + 1))
+
+    local v = tonumber(version_patch:sub(1,version_patch:find(".")))
+    local c = tonumber(version_patch:sub(version_patch:find(".") + 1))
+
+    --判断大版本号
+    if V - v == 0 then
+        if C - c <= 0 then
+            --程序在运行过程中检测到补丁
+            if self.enter.activeSelf then
+                ErrorShow()
+            --
+            else
+                print("Do something~")
+            end
+        --正常执行程序
+        else
+            print("Current patch is not matched with this scene!")
+            --
+            self.enter:SetActive(true)
+        end
+    else
+        print("Current patch is not matched with this scene!")
+        --
+        self.enter:SetActive(true)
+    end
+--
+else
+    ErrorShow()
+end
