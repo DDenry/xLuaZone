@@ -369,6 +369,7 @@ local appVersionType = APPTYPE.DEBUG
 --配置文件参数
 local trackerType = "Once"
 local sceneType = "AR&VR"
+
 --默认主题色为酸橙绿
 local themeColor = {
     r = 50 / 255.0,
@@ -789,8 +790,8 @@ function PROCESS.SetUIAdapter()
         screenHeight = screenHeight - screenWidth
     end
 
-    --屏幕比大于1.8
-    if screenHeight / screenWidth >= 2.0 then
+    --屏幕比大于2.0
+    if screenHeight / screenWidth >= 2.5 then
         LogInfo("ScreenAdapter", "Value of height/width is " .. screenHeight / screenWidth)
         --设置默认偏移量
         local offset = 50
@@ -1071,6 +1072,7 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
 
     --获取配置参数（容错）
     for i = 0, (sceneConfigTxt.Count - 1) do
+
         if (string.find(tostring(sceneConfigTxt[i]), "trackerType") ~= nil) then
             --Tracker模式
             if (sceneConfigTxt[i][0] ~= nil) then
@@ -1115,7 +1117,7 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
             if (sceneConfigTxt[i][1] ~= nil) then
                 _, _, _, defaultView = tostring(sceneConfigTxt[i][1]):find("([\"'])(.-)%1")
                 --
-                if defaultView ~= "Fake" and defaultView ~= "Real" then
+                if defaultView ~= "Fake" and defaultView ~= "Real" and defaultView ~= "Divided" then
                     defaultView = "Fake"
                 end
             end
@@ -2104,26 +2106,36 @@ function PROCESS.StartScanModelScene()
             backGroundColor.a = 0
             TitleImage.color = backGroundColor
 
+            --
+            if defaultView == "Real" then
+                --打开AR相机
+                VuforiaBehaviour.Instance.enabled = true
+                --打开自动对焦
+                VUFORIA.CameraAutoFocus:SetActive(true)
+                --关闭虚景相机
+                CameraBG:SetActive(false)
+            elseif defaultView == "Fake" then
+                --关闭AR相机
+                VuforiaBehaviour.Instance.enabled = false
+                --关闭自动对焦
+                VUFORIA.CameraAutoFocus:SetActive(false)
+                --打开虚景相机
+                CameraBG:SetActive(true)
+            end
+
             --AR模式
             if loadedType == 0 then
 
                 if trackerType == "Once" then
 
                     --判断defaultView模式
-                    if defaultView == "Real" then
+                    if defaultView == "Divided" then
                         --打开AR相机
                         VuforiaBehaviour.Instance.enabled = true
                         --打开自动对焦
                         VUFORIA.CameraAutoFocus:SetActive(true)
                         --关闭虚景相机
                         CameraBG:SetActive(false)
-                    else
-                        --关闭AR相机
-                        VuforiaBehaviour.Instance.enabled = false
-                        --关闭自动对焦
-                        VUFORIA.CameraAutoFocus:SetActive(false)
-                        --打开虚景相机
-                        CameraBG:SetActive(true)
                     end
 
                 elseif trackerType == "Always" then
@@ -2141,15 +2153,7 @@ function PROCESS.StartScanModelScene()
                 --VR
             elseif loadedType == 1 then
                 --打开实景
-                if defaultView == "Real" then
-                    --
-                    VuforiaBehaviour.Instance.enabled = true
-                    --打开自动对焦
-                    VUFORIA.CameraAutoFocus:SetActive(true)
-                    --
-                    CameraBG:SetActive(false)
-                    --显示虚景
-                else
+                if defaultView == "Divided" then
                     --
                     VuforiaBehaviour.Instance.enabled = false
                     --关闭自动对焦

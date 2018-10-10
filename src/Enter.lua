@@ -16,6 +16,7 @@ end
 
 --
 function start()
+    print("Enter_Start!")
     assert(coroutine.resume(coroutine.create(function()
         --[[
                 local webRequest = CS.UnityEngine.Networking.UnityWebRequest.Get("http://gzdl.chu-jiao.com/Loading%3F.jpg?¿¿¿" .. math.random())
@@ -67,17 +68,18 @@ function start()
         if SceneManager.sceneCount == 1 and SceneManager.GetActiveScene().name == "scene" then
             --设置自应用运行方式为single
             _Global:SetData("RunningType", "Single")
-
-            local rootGameObjects = SceneManager.GetActiveScene():GetRootGameObjects()
-            for i = 0, rootGameObjects.Length - 1 do
-                if rootGameObjects[i].name == "MainController" then
-                    --
-                    rootGameObjects[i]:SetActive(true)
-                    break
-                end
-            end
         else
             print("Scene named 'scene' no found! ")
+        end
+
+        --
+        local rootGameObjects = SceneManager.GetActiveScene():GetRootGameObjects()
+        for i = 0, rootGameObjects.Length - 1 do
+            if rootGameObjects[i].name == "MainController" then
+                --
+                rootGameObjects[i]:SetActive(true)
+                break
+            end
         end
 
     end)))
