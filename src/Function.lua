@@ -1482,7 +1482,7 @@ function PROCESS.HandleMenuButton(type, button, mode)
         button.transform:Find("Icon").gameObject:GetComponent("Image").color = COMMON.selectedColor
         button.transform:Find("Text").gameObject:GetComponent("Text").color = COMMON.selectedColor
 
-        --TODO:标识当前操作
+        --标识当前操作至CURRENT_FUNCTION
         table.insert(MENU.functionsList['CURRENT_FUNCTION'], mode)
 
         --进行相应的功能操作
@@ -1500,9 +1500,9 @@ function PROCESS.HandleMenuButton(type, button, mode)
             end
         end
 
-        --TODO：反选后的操作
+        --反选后的操作
         --[[
-            /*  判断当前
+            /*
             *
             */
         ]]
@@ -1519,6 +1519,11 @@ function PROCESS.HandleMenuButton(type, button, mode)
         elseif mode == "CROSS" then
             --隐藏所有切面及模型替代
             CROSS.ResetCrossFunction()
+
+            --判断是否有标注点，有则开放点击
+            if MENU.functionsList['POINT'] then
+                ButtonPoint.interactable = true
+            end
         end
 
         --判断当前是否需要显示默认功能(自带动画)
@@ -1529,6 +1534,8 @@ function PROCESS.HandleMenuButton(type, button, mode)
             end
         end
     end
+
+    print("FunctionsList:" .. table.concat(MENU.functionsList['CURRENT_FUNCTION'], "|"))
 end
 
 --功能菜单按钮点击
@@ -1536,13 +1543,11 @@ function PROCESS.ToolMenuButtonClick(button, mode)
     --判断当前功能选择
     --如果不是标注点功能
     if mode ~= "POINT" and mode ~= "RESET" then
-
         --功能按钮
         PROCESS.HandleMenuButton("ResetOthers", button, mode)
 
         --切面模式
         if mode == "CROSS" then
-
             --未选中切面模式
             if ButtonCrossImage.color.r == 1 then
                 --如果有标注点则标注点按钮可点击
@@ -1556,7 +1561,8 @@ function PROCESS.ToolMenuButtonClick(button, mode)
                 --如果有则关闭标注点
                 if MENU.functionsList['POINT'] then
                     PROCESS.ShowPoint(false)
-
+                    --
+                    PROCESS.HandleMenuButton("DeselectSelf", ButtonPoint, "POINT")
                     --标注点按钮不可点击
                     ButtonPoint.interactable = false
                 end
@@ -1564,14 +1570,13 @@ function PROCESS.ToolMenuButtonClick(button, mode)
         end
     end
 
-    --
+    --判断当前操作是select或者deselect
     if table.concat(MENU.functionsList['CURRENT_FUNCTION'], "|"):find(mode) ~= nil then
         PROCESS.HandleMenuButton("DeselectSelf", button, mode)
     else
         PROCESS.HandleMenuButton("SelectSelf", button, mode)
     end
 end
-
 
 --[[DDenry]]
 --标注点按钮,type=false关闭，type=true显示
@@ -1838,6 +1843,11 @@ function PROCESS.CallToolFunction(mode)
 
         --切面功能
     elseif mode == "CROSS" then
+        --如果有标注点则设置为不可点击
+        if MENU.functionsList['POINT'] then
+            ButtonPoint.interactable = false
+        end
+
         --显示剖切UI
         CrossOperator:SetActive(true)
 
@@ -2551,13 +2561,71 @@ function CROSS.Prepare()
         Quad3 = SectionYZ.section.transform:Find("Quad").gameObject
         meshRenderer3 = SectionYZ.crossedGameObject:GetComponentsInChildren(typeof(CS.UnityEngine.MeshRenderer))
     end
-
     if sectionArguments["sectionNum"] > 3 or sectionArguments["sectionNum"] < 0 then
         print("error sectionNum!")
         OriObject:SetActive(true)
     end
 end
 
+local sectionMode = _Global:GetData("sectionMode")
+
+--剖切模式
+function CROSS.ShowSection(sectionMode)
+    --单独显示
+    if sectionMode == "Single" then
+        --判断切面数量
+        if sectionArguments["sectionNum"] == 3 then
+            --
+            if currentSection == 1 then
+                SectionXY.section:SetActive(true)
+                SectionXY.crossedGameObject:SetActive(true)
+                SectionXZ.section:SetActive(false)
+                SectionXZ.crossedGameObject:SetActive(false)
+                SectionYZ.section:SetActive(false)
+                SectionYZ.crossedGameObject:SetActive(false)
+            elseif currentSection == 2 then
+                SectionXY.section:SetActive(false)
+                SectionXY.crossedGameObject:SetActive(false)
+                SectionXZ.section:SetActive(true)
+                SectionXZ.crossedGameObject:SetActive(true)
+                SectionYZ.section:SetActive(false)
+                SectionYZ.crossedGameObject:SetActive(false)
+            elseif currentSection == 3 then
+                SectionXY.section:SetActive(false)
+                SectionXY.crossedGameObject:SetActive(false)
+                SectionXZ.section:SetActive(false)
+                SectionXZ.crossedGameObject:SetActive(false)
+                SectionYZ.section:SetActive(true)
+                SectionYZ.crossedGameObject:SetActive(true)
+            else
+                SectionXY.section:SetActive(false)
+                SectionXY.crossedGameObject:SetActive(false)
+                SectionXZ.section:SetActive(false)
+                SectionXZ.crossedGameObject:SetActive(false)
+                SectionYZ.section:SetActive(false)
+                SectionYZ.crossedGameObject:SetActive(false)
+            end
+        end
+        --
+    elseif sectionMode == "Combine" then
+        if sectionArguments["sectionNum"] == 1 then
+            SectionXY.section:SetActive(true)
+            SectionXY.crossedGameObject:SetActive(true)
+        elseif sectionArguments["sectionNum"] == 2 then
+            SectionXY.section:SetActive(true)
+            SectionXY.crossedGameObject:SetActive(true)
+            SectionXZ.section:SetActive(true)
+            SectionXZ.crossedGameObject:SetActive(true)
+        elseif sectionArguments["sectionNum"] == 3 then
+            SectionXY.section:SetActive(true)
+            SectionXY.crossedGameObject:SetActive(true)
+            SectionXZ.section:SetActive(true)
+            SectionXZ.crossedGameObject:SetActive(true)
+            SectionYZ.section:SetActive(true)
+            SectionYZ.crossedGameObject:SetActive(true)
+        end
+    end
+end
 
 --[DDenry]切面功能初始化
 function CROSS.InitCrossFunction()
@@ -2574,7 +2642,6 @@ function CROSS.InitCrossFunction()
 
     while true do
 
-        --
         if currentSection == 1 then
             SectionXY.section:SetActive(true)
             SectionXY.crossedGameObject:SetActive(true)
@@ -2596,6 +2663,13 @@ function CROSS.InitCrossFunction()
             SectionXZ.crossedGameObject:SetActive(false)
             SectionYZ.section:SetActive(true)
             SectionYZ.crossedGameObject:SetActive(true)
+        else
+            SectionXY.section:SetActive(false)
+            SectionXY.crossedGameObject:SetActive(false)
+            SectionXZ.section:SetActive(false)
+            SectionXZ.crossedGameObject:SetActive(false)
+            SectionYZ.section:SetActive(false)
+            SectionYZ.crossedGameObject:SetActive(false)
         end
 
         --显示切面UI

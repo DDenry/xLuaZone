@@ -424,6 +424,8 @@ local haveMulModel
 --
 local sectionNum = 0
 local canControl = false
+--
+local sectionMode = "Single"
 
 --
 local table_MarkerToModel = {}
@@ -545,7 +547,6 @@ function start()
                 local callback = select(1, ...)
                 --
                 coroutine.yield(callback:Invoke("Load scene_config"))
-                --yield_return(callback:Invoke("Load scene_config"))
             end)
             --
             assert(coroutine.resume(COROUTINE_LoadSceneConfig, TaskDoneListener))
@@ -1064,7 +1065,6 @@ function CALLBACK.AllPageInfoLoaded()
 
 end
 
-
 --加载场景配置文件
 function CALLBACK.SceneConfigLoaded(sceneConfigJson)
     LogInfo("SceneConfig", sceneConfigJson)
@@ -1199,16 +1199,26 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
                 --
                 _Global:SetData("minValue", tonumber(minValue))
             end
+            --
+            if (sceneConfigTxt[i][4] ~= nil) then
+                --
+                local _sectionMode
+                _, _, _, _sectionMode = string.find(tostring(sceneConfigTxt[i][2]), "([\"'])(.-)%1")
+                --
+                if _sectionMode == "Single" or _sectionMode == "Combine" then
+                    sectionMode = _sectionMode
+                end
+            end
         end
     end
 
     --
-    _Global:SetData("themeColor", themeColor)
-
-    --
+    LogInfo("sceneMode", sectionMode)
     LogInfo("haveViewTransfer", haveViewTransfer)
     LogInfo("defaultView", defaultView)
 
+    --
+    _Global:SetData("themeColor", themeColor)
     --
     _Global:SetData("haveViewTransfer", haveViewTransfer)
     _Global:SetData("defaultView", defaultView)
@@ -1217,6 +1227,8 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
     _Global:SetData("sectionNum", sectionNum)
     --是否可调控切面位置
     _Global:SetData("canControl", canControl)
+    --
+    _Global:SetData("sectionMode", sectionMode)
 end
 
 --ConfigJSON加载完成后回调
