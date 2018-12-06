@@ -1,6 +1,6 @@
 ---
 --- Created by DDenry.
---- DateTime: 2017/6/19 22:18
+--- DateTime: 2018/12/6 16:09
 ---
 
 --local Variable = require "Tool_StaticVariable"
@@ -13,12 +13,16 @@ local COMMON = {}
 local DEBUG = {}
 local CALLBACK = {}
 local PROCESS = {}
+local FUNCTION = {}
 local WEBVIEW = {}
 local VUFORIA = {}
 local APPTYPE = {
     DEBUG = 0,
     RELEASE = 1
 }
+
+--封装视频播放
+local VIDEO = {}
 
 --[[
     任务流程：
@@ -335,6 +339,34 @@ local CameraBG = Models.transform:Find("Camera BG").gameObject
 local CameraModel = Models.transform:Find("Camera").gameObject
 local CameraAR
 
+
+--播放视频
+local video = MainUICanvas.transform:Find("Video").gameObject
+
+local videoPlayer = video:GetComponent("VideoPlayer")
+
+local rawImage = video:GetComponent("RawImage")
+
+local showHide = video.transform:Find("ShowHide")
+
+local videoSafeAreaButton = video.transform:Find("SafeArea"):GetComponent("Button")
+
+local videoTitle = showHide.transform:Find("VideoTitle/Text"):GetComponent("Text")
+
+local videoButtonClose = showHide.transform:Find("VideoTitle/Image"):GetComponent("Button")
+
+local buttonVideoPlay = showHide.transform:Find("VideoNavigation/ControlButton/VideoPlay"):GetComponent("Button")
+
+local buttonVideoPause = showHide.transform:Find("VideoNavigation/ControlButton/VideoPause"):GetComponent("Button")
+
+local videoCurrentTime = showHide.transform:Find("VideoNavigation/CurrentTime"):GetComponent("Text")
+
+local videoLength = showHide.transform:Find("VideoNavigation/Length"):GetComponent("Text")
+
+local videoProcessSlider = showHide.transform:Find("VideoNavigation/ProcessBar"):GetComponent("Slider")
+
+local fillContent = showHide.transform:Find("VideoNavigation/ProcessBar/Fill Area/Fill"):GetComponent("Image")
+
 --子应用返回到主应用时发送消息
 local XLuaLoader = GameObject.Find("XLuaLoader").gameObject:GetComponent(typeof(CS.XLuaLoader))
 --local PageInfoManager = GameObject.Find("Main Storyboard"):GetComponent(typeof(CS.SubScene.PageInfoManager))
@@ -500,6 +532,7 @@ function start()
     --设置资源的绝对路径
     _Global:SetData("AbsolutePath", EzStoryboardPlayer.Path)
 
+    --
     COMMON.RegisterListener(TaskDoneListener, PROCESS.TaskDone)
 
     --创建应用Task并执行
@@ -1213,6 +1246,7 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
     end
 
     --
+    LogInfo("TrackerType is :" .. trackerType)
     LogInfo("sceneMode", sectionMode)
     LogInfo("haveViewTransfer", haveViewTransfer)
     LogInfo("defaultView", defaultView)
@@ -1319,7 +1353,7 @@ function CALLBACK.PageListSelected(url)
 
     --选择事件
     --创建应用Task并执行
-    Task     :new("ModelScanMode",
+    Task     :new("VideoPlay",
             function()
                 --判断URL回调类型
                 --TODO:替换协议head
@@ -1339,17 +1373,210 @@ function CALLBACK.PageListSelected(url)
                     PROCESS.SetScanModelParameters()
 
                     ---此处可以进行模式替换，例如点击书页后播放相应视频
+                    --
+                    backType = loadedType
 
-                    --开启模型浏览
-                    PROCESS.StartScanModelScene()
+                    print("App is about playing video ~")
 
-                    ---
+                    VIDEO.PlayVideo(wwwAssetPath .. sceneName .. "/video.mp4")
 
-                    --更新子应用进度
-                    PROCESS.UpdateUseProgress()
                 end
             end
     , nil, 1):PostInQueue()
+end
+
+local needVideoRendered = false
+
+--视频准备好以后开始播放
+local videoPrepared = function()
+
+
+    --填充进度条颜色
+    fillContent.color = themeColor
+
+    --设置视频时长
+    videoLength.text = VIDEO.CalculateTime(videoPlayer.frameCount / videoPlayer.frameRate)
+
+    --进度条
+    videoProcessSlider.maxValue = math.ceil(videoPlayer.frameCount / videoPlayer.frameRate)
+
+    --
+    videoPlayer:Play()
+
+    --
+    buttonVideoPlay.gameObject:SetActive(false)
+    buttonVideoPause.gameObject:SetActive(true)
+
+end
+
+--
+local showAllTime = false
+
+local autoShowHide = coroutine.create(function(needAutoHide)
+
+    repeat
+        --判断是否需要一直显示
+        if showAllTime then
+
+            print("Need show all the time~")
+
+        else
+
+            print(">>>>>>>>>" .. tostring(showHide.gameObject.activeSelf))
+
+            if not showHide.gameObject.activeSelf then
+
+                showHide.gameObject:SetActive(true)
+
+                if needAutoHide then
+
+                    needAutoHide = yield_return(CS.UnityEngine.WaitForSeconds(5.0))
+
+                end
+
+            end
+
+            showHide.gameObject:SetActive(false)
+        end
+
+        needAutoHide = coroutine.yield()
+
+        --
+    until autoShowPoint == nil
+
+end)
+
+--视频功能准备
+function VIDEO.Prepare()
+
+    --ButtonVideoClose
+    COMMON.RegisterListener(videoButtonClose.onClick, function()
+
+        TaskDoneListener:Invoke("VideoPlay")
+        --
+        VIDEO.StopVideo()
+        --
+        showHide.gameObject:SetActive(false)
+        --
+        PROCESS.ControlBack()
+    end)
+
+    --
+    COMMON.RegisterListener(videoSafeAreaButton.onClick, function()
+
+        assert(coroutine.resume(autoShowHide, true))
+
+    end)
+
+    --视频播放
+    buttonVideoPlay.onClick:AddListener(function()
+        --
+        buttonVideoPlay.gameObject:SetActive(false)
+        buttonVideoPause.gameObject:SetActive(true)
+        --
+        videoPlayer.playbackSpeed = 1.0
+    end)
+
+    --视频暂停
+    buttonVideoPause.onClick:AddListener(function()
+        --
+        buttonVideoPause.gameObject:SetActive(false)
+        buttonVideoPlay.gameObject:SetActive(true)
+        --
+        videoPlayer.playbackSpeed = 0.0
+    end)
+
+    --给滑动条添加EventTrigger
+    videoProcessSlider.gameObject:AddComponent(typeof(CS.UnityEngine.EventSystems.EventTrigger))
+    local eventTrigger = videoProcessSlider.gameObject:GetComponent(typeof(CS.UnityEngine.EventSystems.EventTrigger))
+
+    --设置滑动条
+    local entry = CS.UnityEngine.EventSystems.EventTrigger.Entry()
+    entry.eventID = CS.UnityEngine.EventSystems.EventTriggerType.Drag
+
+    --拖动回调
+    entry.callback:AddListener(function()
+        --设置进度条value到videoPlayer播放time
+        videoPlayer.time = videoProcessSlider.value
+    end)
+
+    eventTrigger.triggers:Add(entry)
+end
+
+--播放视频
+function VIDEO.PlayVideo(URI)
+
+    if URI == nil then
+        print("Video URL cannot be empty!")
+        return
+    end
+
+    --设置video播放源路径
+    videoPlayer.url = URI
+    --
+    videoPlayer:prepareCompleted("+", videoPrepared)
+
+    videoPlayer:Prepare()
+
+    --标识VideoRendered开始Update渲染
+    needVideoRendered = true
+
+    --打开VideoPanel
+    video:SetActive(true)
+
+end
+
+--停止播放视频
+function VIDEO.StopVideo()
+    --
+    videoPlayer:Stop()
+
+    --标识VideoRendered开始Update渲染
+    needVideoRendered = false
+
+    --
+    videoPlayer:prepareCompleted("-", videoPrepared)
+
+    --打开VideoPanel
+    video:SetActive(false)
+end
+
+--根据视频帧数/视频帧率计算时间
+function VIDEO.CalculateTime(time)
+
+    if math.ceil(time) == time then
+        time = math.ceil(time)
+    else
+        time = math.ceil(time) - 1
+    end
+
+    local hour = time / 3600
+
+    if math.ceil(hour) == hour then
+        hour = math.ceil(hour)
+    else
+        hour = math.ceil(hour) - 1
+    end
+
+    local minute = time / 60
+
+    if math.ceil(minute) == minute then
+        minute = math.ceil(minute)
+    else
+        minute = math.ceil(minute) - 1
+    end
+
+    local second = (time - minute * 60)
+
+    local length
+    --
+    if hour == 0 then
+        length = string.format("%02d:%02d", minute, second)
+    else
+        length = string.format("%02d:%02d:%02d", hour, minute, second)
+    end
+
+    return length
 end
 
 --更新子应用的书页被读取进度
@@ -1509,7 +1736,6 @@ function PROCESS.SwitchScene()
             else
                 trackerType = "Once"
             end
-            LogInfo("TrackerType is :" .. trackerType)
         end
     elseif sceneType == "AR&VR" then
 
@@ -1751,8 +1977,13 @@ end
 
 --TrackingFound回调
 function CALLBACK.TrackingFound(DynamicTarget)
+
     currentMarkerGameObject = DynamicTarget
+
     LogInfo(DynamicTarget.name .. " Found!")
+
+    DataSetLoader:DeactivateDataSet()
+
     --标识是否需要加载相应模型
     local needLoad = true
     --
@@ -1854,6 +2085,7 @@ function CALLBACK.TrackingLost(DynamicTarget)
 
     MainSubtitleText.text = ""
 end
+
 
 --添加按钮监听
 function PROCESS.RegisterUIButtonListener()
@@ -2005,6 +2237,10 @@ function PROCESS.RegisterUIButtonListener()
             end
         end
     end)
+
+    --视频播放的准备
+    VIDEO.Prepare()
+
 end
 
 --显示应用操作UI
@@ -2496,6 +2732,18 @@ function update()
         if Input.GetKeyDown(CS.UnityEngine.KeyCode.LeftControl) and Input.GetKeyDown(CS.UnityEngine.KeyCode.LeftAlt) then
             --
             DEBUG.TaskInfo()
+        end
+    end
+
+    --播放视频需要实时渲染
+    if needVideoRendered then
+        if videoPlayer.texture ~= nil then
+            --把VideoPlayerd的视频渲染到UGUI的RawImage
+            rawImage.texture = videoPlayer.texture
+            --更新视频进度
+            videoCurrentTime.text = VIDEO.CalculateTime(videoPlayer.time)
+            --更新进度条
+            videoProcessSlider.value = videoPlayer.time
         end
     end
 end
