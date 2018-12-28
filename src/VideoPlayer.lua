@@ -536,7 +536,7 @@ function start()
     COMMON.RegisterListener(TaskDoneListener, PROCESS.TaskDone)
 
     --创建应用Task并执行
-    Task                         :new("NecessaryConfig", {
+    Task     :new("NecessaryConfig", {
         function()
             --判断UI显示方式（适配）
             COMMON.Function2XPCall(PROCESS.SetUIAdapter)
@@ -587,7 +587,7 @@ function start()
             COROUTINE_LoadSceneConfig = nil
         end
     }
-    , nil, 0)                    :PostInQueue()
+    , nil, 0):PostInQueue()
 
     --准备场景
     Task           :new("PrepareScene",
@@ -1404,6 +1404,7 @@ local videoPrepared = function()
     videoPlayer:Play()
 
     --
+    videoPlayer.playbackSpeed = 1.0
     buttonVideoPlay.gameObject:SetActive(false)
     buttonVideoPause.gameObject:SetActive(true)
 
@@ -1513,6 +1514,10 @@ function VIDEO.PlayVideo(URI)
 
     --设置video播放源路径
     videoPlayer.url = URI
+
+    --
+    videoTitle.text = modelName
+
     --
     videoPlayer:prepareCompleted("+", videoPrepared)
 

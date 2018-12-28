@@ -476,6 +476,9 @@ end
 function StudioData.LoadPointData()
     --
     print("Load PointData Enter!")
+
+    CS.SceneStudio.PersistentInfoPoints:Load(projectPath + pointFile.Substring(2))
+
     if OriObject:GetComponentsInChildren(typeof(CS.SceneStudio.PointData)).Length > 0 then
         for i = 0, OriObject:GetComponentsInChildren(typeof(CS.SceneStudio.PointData)).Length - 1 do
             --获取所有标注点
@@ -540,8 +543,10 @@ function StudioData.LoadPointData()
                             else
                                 point_url = wwwAssetPath .. sceneName .. "/" .. table_point[i]:GetComponent(typeof(CS.SceneStudio.ObjectData)).ID .. ".html"
                             end
+
                             --打开WebView
                             CallbackFromUniWebView:LoadFromFile(point_url, 0, 0, 0)
+
                             --如果音频动画不为nil
                             if (AudioSource.clip ~= nil) then
                                 --暂停音频播放
@@ -1068,7 +1073,7 @@ function PROCESS.InitDataTable()
     --初始化
     defaultViewTransform = {
         localPosition = Vector3.zero,
-        localRotation = Quaternion.Euler(Vector3(-20, -30, 10)),
+        localRotation = Quaternion.Euler(Vector3.zero),
         localScale = Vector3.one
     }
 

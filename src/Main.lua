@@ -13,6 +13,8 @@ local COMMON = {}
 local DEBUG = {}
 local CALLBACK = {}
 local PROCESS = {}
+local PROCEDURE = {}
+local VIDEO = {}
 local WEBVIEW = {}
 local VUFORIA = {}
 local APPTYPE = {
@@ -439,6 +441,14 @@ local backGroundColor = {
     a = TitleImage.color.a
 }
 
+--VIDEO Variable
+--videoPlayer
+VIDEO.videoPlayer = Root.transform:Find("Functions/VideoPlayerController"):GetComponent("VideoPlayer")
+--progressSlider
+VIDEO.progressSlider = MainUICanvas.transform:Find("VideoPlayer/NavigationBar/ProgressBar/Slider"):GetComponent("Slider")
+--
+VIDEO.fillContent = VIDEO.progressSlider.gameObject.transform:Find("Fill Area/Fill"):GetComponent("Image")
+
 --
 function onenable()
     LogInfo("MainController_Enable!")
@@ -503,7 +513,7 @@ function start()
     COMMON.RegisterListener(TaskDoneListener, PROCESS.TaskDone)
 
     --创建应用Task并执行
-    Task                         :new("NecessaryConfig", {
+    Task     :new("NecessaryConfig", {
         function()
             --判断UI显示方式（适配）
             COMMON.Function2XPCall(PROCESS.SetUIAdapter)
@@ -554,7 +564,7 @@ function start()
             COROUTINE_LoadSceneConfig = nil
         end
     }
-    , nil, 0)                    :PostInQueue()
+    , nil, 0):PostInQueue()
 
     --准备场景
     Task           :new("PrepareScene",
@@ -1006,6 +1016,44 @@ function PROCESS.LoadConfigJson()
     end))
 end
 
+--自动计算模型中点
+function PROCESS.AutoCalculateCenter(parent)
+    local position = parent.position
+    local rotation = parent.rotation
+    local scale = parent.localScale
+    parent.position = Vector3.zero
+    parent.rotation = Quaternion.Euler(Vector3.zero)
+    parent.localScale = Vector3.one
+
+    local center = Vector3.zero
+    local renders = parent:GetComponentsInChildren(typeof(CS.UnityEngine.MeshRenderer), true)
+
+    print(">>>>>>>>>>>>>>" .. tostring(renders.Length))
+
+    for i = 0, renders.Length - 1 do
+        center = center + renders[i].bounds.center
+    end
+
+    local transformGroup = parent:GetComponentsInChildren(typeof(CS.UnityEngine.Transform), true)
+
+    center = center / transformGroup.Length
+
+    local bounds = CS.UnityEngine.Bounds(center, Vector3.zero)
+
+    for i = 0, renders.Length - 1 do
+        bounds:Encapsulate(renders[i].bounds)
+    end
+
+    parent.position = Vector3.zero
+    parent.rotation = Quaternion.Euler(Vector3.zero)
+    parent.localScale = Vector3.one
+
+    for i = 0, transformGroup.Length - 1 do
+        transformGroup[i].position = transformGroup[i].position - bounds.center
+    end
+
+end
+
 --Exist AllPageInfo.json
 function CALLBACK.ExistAllPageInfo()
     --注册AllPageInfoLoaded回调监听
@@ -1068,6 +1116,7 @@ end
 --加载场景配置文件
 function CALLBACK.SceneConfigLoaded(sceneConfigJson)
     LogInfo("SceneConfig", sceneConfigJson)
+
     local sceneConfigTxt = JSON.Parse(sceneConfigJson)
 
     --获取配置参数（容错）
@@ -1083,6 +1132,7 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
             if (sceneConfigTxt[i][0] ~= nil) then
                 _, _, _, sceneType = string.find(tostring(sceneConfigTxt[i][0]), "([\"'])(.-)%1")
             end
+
             --是否自动打开标注点
             if (sceneConfigTxt[i][1] ~= nil) then
                 _, _, _, autoShowPoint = string.find(tostring(sceneConfigTxt[i][1]), "([\"'])(.-)%1")
@@ -1090,6 +1140,7 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
             else
                 _Global:SetData("autoShowPoint", false)
             end
+
             --主题颜色 themeColor
             if (sceneConfigTxt[i][2] ~= nil) then
                 local _, _, _, _color = tostring(sceneConfigTxt[i][2]):find("([\"'])(.-)%1")
@@ -1113,7 +1164,8 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
                     haveViewTransfer = false
                 end
             end
-            --
+
+            --浏览视图模式
             if (sceneConfigTxt[i][1] ~= nil) then
                 _, _, _, defaultView = tostring(sceneConfigTxt[i][1]):find("([\"'])(.-)%1")
                 --
@@ -1210,6 +1262,13 @@ function CALLBACK.SceneConfigLoaded(sceneConfigJson)
                 end
             end
         end
+    end
+
+    --AR&VR模式下不兼容追踪
+    if sceneType == "AR&VR" then
+        trackerType = "Once"
+
+        LogWarning("Compatibility", "Track always cannot matched with scene type " .. sceneType)
     end
 
     --
@@ -1319,7 +1378,7 @@ function CALLBACK.PageListSelected(url)
 
     --选择事件
     --创建应用Task并执行
-    Task     :new("ModelScanMode",
+    Task     :new("Procedure",
             function()
                 --判断URL回调类型
                 --TODO:替换协议head
@@ -1335,21 +1394,39 @@ function CALLBACK.PageListSelected(url)
                     end
                     --解析url
                     PROCESS.URLInterpreter(url)
+
                     --设置解析后的参数
-                    PROCESS.SetScanModelParameters()
+                    PROCESS.SetParameters()
 
-                    ---此处可以进行模式替换，例如点击书页后播放相应视频
+                    --执行相应功能
+                    PROCESS.StartAimedFunction()
 
-                    --开启模型浏览
-                    PROCESS.StartScanModelScene()
-
-                    ---
-
-                    --更新子应用进度
-                    PROCESS.UpdateUseProgress()
                 end
             end
     , nil, 1):PostInQueue()
+end
+
+--执行相应的功能
+function PROCESS.StartAimedFunction()
+    LogInfo("DoType", doType)
+
+    if doType == "do" then
+        --模型浏览
+        PROCEDURE.StartScanModelScene()
+
+    elseif doType == "video" then
+    elseif doType == "doType" then
+        --
+        PROCEDURE.PlayVideo()
+    else
+        doType = "model"
+    end
+
+end
+
+--播放视频功能
+function PROCEDURE.PlayVideo()
+    print("====================")
 end
 
 --更新子应用的书页被读取进度
@@ -1710,13 +1787,17 @@ function VUFORIA.FindDynamicTarget()
         for i = 0, (arr_DynamicTargets.Length - 1) do
             --找到识别图
             if (string.find(arr_DynamicTargets[i].gameObject.name, "DynamicTarget") ~= nil) then
+
                 --给识别图添加监听脚本
                 arr_DynamicTargets[i].gameObject:AddComponent(typeof(CS.EzComponents.Vuforia.UnityTrackableEventHandler))
+
                 --注册监听
                 local onFound = arr_DynamicTargets[i].gameObject:GetComponent(typeof(CS.EzComponents.Vuforia.UnityTrackableEventHandler)).onFound
+
                 COMMON.RegisterListener(onFound, function()
                     CALLBACK.TrackingFound(arr_DynamicTargets[i])
                 end)
+
             end
         end
     elseif trackerType == "Always" then
@@ -1728,19 +1809,28 @@ function VUFORIA.FindDynamicTarget()
                 arr_DynamicTargets[i].gameObject:AddComponent(typeof(CS.CustomTrackableEventHandler))
                 --
                 arr_DynamicTargets[i].gameObject:AddComponent(typeof(Vuforia.TurnOffBehaviour))
+
+                print(arr_DynamicTargets[i].gameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget.Name)
+                --获取到识别图的大小
+                print(arr_DynamicTargets[i].gameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget:GetSize())
+
                 --注册onFound监听
                 local onFound = arr_DynamicTargets[i].gameObject:GetComponent(typeof(CS.CustomTrackableEventHandler)).onFound
+
                 COMMON.RegisterListener(onFound, function()
                     CALLBACK.TrackingFound(arr_DynamicTargets[i])
                 end)
+
                 --注册onLost监听
                 local onLost = arr_DynamicTargets[i].gameObject:GetComponent(typeof(CS.CustomTrackableEventHandler)).onLost
+
                 COMMON.RegisterListener(onLost, function()
                     CALLBACK.TrackingLost(arr_DynamicTargets[i])
                 end)
             end
         end
     end
+
     --
     LogInfo("Add Script to DynamicTargets!")
 
@@ -1751,8 +1841,11 @@ end
 
 --TrackingFound回调
 function CALLBACK.TrackingFound(DynamicTarget)
+
     currentMarkerGameObject = DynamicTarget
+
     LogInfo(DynamicTarget.name .. " Found!")
+
     --标识是否需要加载相应模型
     local needLoad = true
     --
@@ -1760,10 +1853,24 @@ function CALLBACK.TrackingFound(DynamicTarget)
         if trackerType == "Once" then
 
         elseif trackerType == "Always" then
-            --判断是否已经加载出相应的模型
-            if DynamicTarget.transform:Find("MakerAll") ~= nil then
-                LogInfo("Current tracker has loaded model!")
-                needLoad = false
+
+            --判断内容模式
+            if doType ~= nil then
+                --video模式
+                if doType == "doType" then
+
+
+                    --模型模式
+                else
+                    --判断是否已经加载出相应的模型
+                    if DynamicTarget.transform:Find("MakerAll") ~= nil then
+
+                        LogInfo("Current tracker has loaded model!")
+
+                        --无需再次加载
+                        needLoad = false
+                    end
+                end
             end
         end
     else
@@ -1821,8 +1928,9 @@ function CALLBACK.TrackingFound(DynamicTarget)
 
             --需要加载模型
             if needLoad then
-                --pagelist://post?url1=p2-20/assetbundle&url2=modelName&url3=&url4=3
-                local url = "pagelist://post?sceneName=" .. sceneName .. "&pageName=" .. pageName .. "&modelName=" .. modelName .. "&haveMulModel=" .. haveMulModel .. "&sectionNum=" .. sectionNum
+                --pagelist://model?url1=p2-20/assetbundle&url2=modelName&url3=&url4=3
+                local url = "pagelist://doType?sceneName=" .. sceneName .. "&pageName=" .. pageName .. "&modelName=" .. modelName .. "&haveMulModel=" .. haveMulModel .. "&sectionNum=" .. sectionNum
+
                 --加载模型
                 CALLBACK.PageListSelected(url)
             else
@@ -2015,8 +2123,8 @@ function PROCESS.ShowOperateUI()
     PreLoad:SetActive(false)
 end
 
---开启模型浏览模式
-function PROCESS.StartScanModelScene()
+--模型浏览模式
+function PROCEDURE.StartScanModelScene()
     LogInfo("Set model-scanned scene~")
 
     --显示Loading界面
@@ -2183,6 +2291,8 @@ function PROCESS.StartScanModelScene()
         end
     end)))
 
+    --更新子应用进度
+    PROCESS.UpdateUseProgress()
 end
 
 --模型加载完毕后回调
@@ -2199,8 +2309,12 @@ function CALLBACK.ModelLoaded(...)
     --获取模型
     local MakerAll = GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll")
 
+    --[自动计算模型中心点]
+    PROCESS.AutoCalculateCenter(MakerAll.transform)
+
     --
     if trackerType == "Once" or loadedType == 1 then
+
         --设置所加载的模型Layer为model层
         for i = 0, MakerAll:GetComponentsInChildren(typeof(CS.SceneStudio.ObjectData)).Length - 1 do
             MakerAll:GetComponentsInChildren(typeof(CS.SceneStudio.ObjectData))[i].gameObject.layer = 8
@@ -2221,7 +2335,9 @@ function CALLBACK.ModelLoaded(...)
 
         --LuaController_Tool.lua
         LuaController_Tool:SetActive(true)
+
     elseif trackerType == "Always" and loadedType == 0 then
+
         --返回键直接退出应用
         backType = -1
 
@@ -2232,10 +2348,12 @@ function CALLBACK.ModelLoaded(...)
             _MakerAll.name = "MakerAll"
 
             _MakerAll.transform.localScale = Vector3(1 / 200, 1 / 200, 1 / 200)
+
             --
             for i = 0, GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll").transform.childCount - 1 do
                 Destroy(GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll").transform:GetChild(i).gameObject)
             end
+
             --
             Loading:SetActive(false)
         end
@@ -2243,6 +2361,7 @@ function CALLBACK.ModelLoaded(...)
 
     --模型加载完毕回调
     local callback = select(1, ...)
+
     coroutine.yield(callback:Invoke("Model Loaded"))
 end
 
@@ -2259,10 +2378,15 @@ function CALLBACK.ModelUnloaded()
     --TODO:清除工具里的动画信息
     CS.SceneStudio.AnimationManager.Instance:ClearAllAnimationClipData()
 
+    local MakerAll = GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll")
     --
-    for i = 0, GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll").transform.childCount - 1 do
-        Destroy(GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll").transform:GetChild(i).gameObject)
+    for i = 0, MakerAll.transform.childCount - 1 do
+        Destroy(MakerAll.transform:GetChild(i).gameObject)
     end
+
+    MakerAll.transform.localPosition = Vector3.zero
+    MakerAll.transform.localRotation = Quaternion.Euler(Vector3.zero)
+    MakerAll.transform.localScale = Vector3.one
 
     --
     COMMON.CollectGarbage()
@@ -2292,13 +2416,14 @@ end
 
 --解析URL,分离所需参数
 function PROCESS.URLInterpreter(url)
-    --pagelist://do?#index|sceneName=assetBundlePath&modelName=modelName&haveModels=htmlPath&sectionNum=sectionNum
+    --pagelist://doType?#index|sceneName=assetBundlePath&modelName=modelName&haveModels=htmlPath&sectionNum=sectionNum
     local url_head_pos = url:find('://')
     local url_head = url:sub(1, url_head_pos - 1)
     --获取到urlHead
     urlParameters['urlHead'] = url_head
     local sub_url_head = url:gsub(url_head .. "://", "")
     local do_type = sub_url_head:sub(1, sub_url_head:find('?') - 1)
+
     --获取到doType
     urlParameters['doType'] = do_type
 
@@ -2319,7 +2444,7 @@ function PROCESS.URLInterpreter(url)
 end
 
 --给模型浏览场景所需参数赋值
-function PROCESS.SetScanModelParameters()
+function PROCESS.SetParameters()
     local count = 0
     for i, parameter in pairs(urlParameters) do
         count = count + 1
@@ -2584,7 +2709,8 @@ function ondestroy()
     --销毁域
     DEBUG = nil
     CALLBACK = nil
-    PROCESS = nil
+    PROCEDURE = nil
+    FUNCTION = nil
     WEBVIEW = nil
     VUFORIA = nil
     PROCESS = nil
