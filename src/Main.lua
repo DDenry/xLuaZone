@@ -442,12 +442,24 @@ local backGroundColor = {
 }
 
 --VIDEO Variable
+VIDEO.UI = MainUICanvas.transform:Find("VideoPlayer").gameObject
 --videoPlayer
+VIDEO.videoQuad = Root.transform:Find("TmpSave/VideoQuad")
+
 VIDEO.videoPlayer = Root.transform:Find("Functions/VideoPlayerController"):GetComponent("VideoPlayer")
 --progressSlider
-VIDEO.progressSlider = MainUICanvas.transform:Find("VideoPlayer/NavigationBar/ProgressBar/Slider"):GetComponent("Slider")
+VIDEO.progressSlider = VIDEO.UI.transform:Find("NavigationBar/ProgressBar/Slider"):GetComponent("Slider")
 --
 VIDEO.fillContent = VIDEO.progressSlider.gameObject.transform:Find("Fill Area/Fill"):GetComponent("Image")
+
+--CurrentTimeStamp
+VIDEO.currentTimeStamp = VIDEO.UI.transform:Find("NavigationBar/ProgressBar/CurrentTimeStamp"):GetComponent("Text")
+--TotalTimeStamp
+VIDEO.totalTimeStamp = VIDEO.UI.transform:Find("NavigationBar/ProgressBar/TotalTimeStamp"):GetComponent("Text")
+--buttonPlay
+VIDEO.buttonPlay = VIDEO.UI.transform:Find("NavigationBar/ButtonController/ButtonPlay"):GetComponent("Button")
+--buttonPause
+VIDEO.buttonPause = VIDEO.UI.transform:Find("NavigationBar/ButtonController/ButtonPause"):GetComponent("Button")
 
 --
 function onenable()
@@ -575,6 +587,7 @@ function start()
                 --显示可操作界面
                 PROCESS.ShowOperateUI()
             end, 0):PostInQueue()
+
 end
 
 function LogInfo(...)
@@ -706,6 +719,7 @@ end
 function COMMON.RegisterListener(self, callBack)
 
     LogInfo("Registered Listener", self)
+
     --
     listenerRegisteredId[#listenerRegisteredId + 1] = self
 
@@ -1408,6 +1422,8 @@ end
 
 --执行相应的功能
 function PROCESS.StartAimedFunction()
+    doType = "video"
+
     LogInfo("DoType", doType)
 
     if doType == "do" then
@@ -1415,8 +1431,8 @@ function PROCESS.StartAimedFunction()
         PROCEDURE.StartScanModelScene()
 
     elseif doType == "video" then
-    elseif doType == "doType" then
-        --
+        TaskDoneListener:Invoke("VideoPlaying")
+
         PROCEDURE.PlayVideo()
     else
         doType = "model"
@@ -1424,9 +1440,168 @@ function PROCESS.StartAimedFunction()
 
 end
 
+--Video播放初始化
+function VIDEO.InitVideoPlayer()
+    --
+    COMMON.RegisterListener(VIDEO.buttonPlay.onClick, function()
+        --
+        VIDEO.buttonPlay.gameObject:SetActive(false)
+        VIDEO.buttonPause.gameObject:SetActive(true)
+
+        VIDEO.videoPlayer.playbackSpeed = 1.0
+
+        VIDEO.needUpdateProcess = true
+    end)
+
+    COMMON.RegisterListener(VIDEO.buttonPause.onClick, function()
+        --
+        PROCEDURE.PauseVideo()
+    end)
+
+    VIDEO.videoPlayer.isLooping = true
+
+    --
+    VIDEO.videoPlayer:prepareCompleted("+", VIDEO.videoPrepared)
+
+    --填充进度条颜色
+    VIDEO.fillContent.color = themeColor
+
+    --给滑动条添加EventTrigger
+    VIDEO.progressSlider.gameObject:AddComponent(typeof(CS.UnityEngine.EventSystems.EventTrigger))
+    local eventTrigger = VIDEO.progressSlider.gameObject:GetComponent(typeof(CS.UnityEngine.EventSystems.EventTrigger))
+
+    --设置滑动条
+    local entry = CS.UnityEngine.EventSystems.EventTrigger.Entry()
+    entry.eventID = CS.UnityEngine.EventSystems.EventTriggerType.Drag
+
+    --拖动回调
+    entry.callback:AddListener(function()
+        --设置进度条value到videoPlayer播放time
+        VIDEO.videoPlayer.time = VIDEO.progressSlider.value
+    end)
+
+    eventTrigger.triggers:Add(entry)
+end
+
+--根据视频帧数/视频帧率计算时间
+function VIDEO.CalculateTime(time)
+
+    if math.ceil(time) == time then
+        time = math.ceil(time)
+    else
+        time = math.ceil(time) - 1
+    end
+
+    local hour = time / 3600
+
+    if math.ceil(hour) == hour then
+        hour = math.ceil(hour)
+    else
+        hour = math.ceil(hour) - 1
+    end
+
+    local minute = time / 60
+
+    if math.ceil(minute) == minute then
+        minute = math.ceil(minute)
+    else
+        minute = math.ceil(minute) - 1
+    end
+
+    local second = (time - minute * 60)
+
+    local length
+    --
+    if hour == 0 then
+        length = string.format("%02d:%02d", minute, second)
+    else
+        length = string.format("%02d:%02d:%02d", hour, minute, second)
+    end
+
+    return length
+end
+
+--更新视频进度标识量
+VIDEO.needUpdateProcess = false
+
+function VIDEO.videoPrepared()
+
+    local videoMillis = VIDEO.videoPlayer.frameCount / VIDEO.videoPlayer.frameRate
+    --计算视频时长
+    VIDEO.totalTimeStamp.text = VIDEO.CalculateTime(videoMillis)
+
+    VIDEO.progressSlider.maxValue = math.ceil(videoMillis)
+
+    VIDEO.buttonPlay.gameObject:SetActive(false)
+
+    VIDEO.buttonPause.gameObject:SetActive(true)
+
+    --
+    VIDEO.needUpdateProcess = true
+
+    --设置VideoPlayer播放速度
+    VIDEO.videoPlayer.playbackSpeed = 1.0
+
+    --
+    VIDEO.progressSlider.value = 0.0
+
+    --重置VideoPlayer进度条
+    VIDEO.videoPlayer.time = 0.0
+
+    --播放视频的模式下显示UI
+    VIDEO.UI:SetActive(true)
+
+    --开始播放视频
+    VIDEO.videoPlayer:Play()
+
+    --
+    VIDEO.needUpdateProcess = true
+end
+
 --播放视频功能
 function PROCEDURE.PlayVideo()
-    print("====================")
+
+    if currentMarkerGameObject ~= nil then
+        --获取到识别到的ImageSize
+        local size = currentMarkerGameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget:GetSize()
+
+        --根据识别图大小设置视频窗口大小
+        VIDEO.videoQuad.gameObject.transform.localScale = size
+
+        --在识别图下生成VideoQuad
+        if currentMarkerGameObject.transform:Find("VideoQuad") == nil then
+
+            local videoQuad = GameObject.Instantiate(VIDEO.videoQuad, currentMarkerGameObject.transform)
+
+            videoQuad.name = "VideoQuad"
+
+            videoQuad.gameObject:SetActive(true)
+
+        else
+            LogInfo(currentMarkerGameObject.name .. " has loaded its video!")
+        end
+
+        VIDEO.videoPlayer.targetMaterialRenderer = currentMarkerGameObject.transform:Find("VideoQuad"):GetComponent("MeshRenderer")
+
+        --设置播放路径
+        VIDEO.videoPlayer.url = wwwAssetPath .. sceneName .. "/video.mp4"
+
+        VIDEO.videoPlayer:Prepare()
+
+    else
+        LogError(sceneType + " model cannot support playing video temporarily!")
+    end
+end
+
+--
+function PROCEDURE.PauseVideo()
+    --
+    VIDEO.videoPlayer.playbackSpeed = 0.0
+
+    VIDEO.needUpdateProcess = false
+
+    VIDEO.buttonPlay.gameObject:SetActive(true)
+    VIDEO.buttonPause.gameObject:SetActive(false)
 end
 
 --更新子应用的书页被读取进度
@@ -1854,23 +2029,21 @@ function CALLBACK.TrackingFound(DynamicTarget)
 
         elseif trackerType == "Always" then
 
-            --判断内容模式
-            if doType ~= nil then
-                --video模式
-                if doType == "doType" then
+            --判断是否已经加载出相应的模型
+            if DynamicTarget.transform:Find("MakerAll") ~= nil then
 
+                LogInfo("Current tracker has loaded model!")
 
-                    --模型模式
-                else
-                    --判断是否已经加载出相应的模型
-                    if DynamicTarget.transform:Find("MakerAll") ~= nil then
+                --无需再次加载
+                needLoad = false
 
-                        LogInfo("Current tracker has loaded model!")
+                --判断是否已经播放相应的视频
+            elseif DynamicTarget.transform:Find("VideoQuad") ~= nil then
 
-                        --无需再次加载
-                        needLoad = false
-                    end
-                end
+                LogInfo("Current tracker has loaded video!")
+
+                --无需再次加载
+                needLoad = false
             end
         end
     else
@@ -1936,6 +2109,12 @@ function CALLBACK.TrackingFound(DynamicTarget)
             else
                 --设置相应的模型名称、
                 MainSubtitleText.text = (modelName ~= nil and modelName) or ""
+
+                if doType ~= nil and doType == "video" then
+
+                    PROCEDURE.PlayVideo()
+                end
+
             end
 
             --找到便退出循环
@@ -1955,6 +2134,16 @@ function CALLBACK.TrackingLost(DynamicTarget)
     currentMarkerGameObject = nil
     local DynamicTargetName = DynamicTarget.name
     LogInfo(DynamicTargetName .. " Lost!")
+
+    --
+    if DynamicTarget.gameObject.transform:Find("VideoQuad") ~= nil then
+        --隐藏视频播放UI
+        VIDEO.UI:SetActive(false)
+
+        --暂停视频播放
+        PROCEDURE.PauseVideo()
+    end
+
     --
     if Loading.active then
         Loading:SetActive(false)
@@ -2121,6 +2310,8 @@ function PROCESS.ShowOperateUI()
     TitlePanel:SetActive(true)
     --隐藏遮罩
     PreLoad:SetActive(false)
+    --初始化VideoPlayer
+    VIDEO.InitVideoPlayer()
 end
 
 --模型浏览模式
@@ -2170,6 +2361,7 @@ function PROCEDURE.StartScanModelScene()
         assert(coroutine.resume(coroutine.create(function()
             --延迟一帧
             yield_return(1)
+
             --开始加载Studio数据
             StudioDataManager:LoadFromMobile(wwwAssetPath .. sceneName .. "/")
         end)))
@@ -2310,7 +2502,7 @@ function CALLBACK.ModelLoaded(...)
     local MakerAll = GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll")
 
     --[自动计算模型中心点]
-    PROCESS.AutoCalculateCenter(MakerAll.transform)
+    --PROCESS.AutoCalculateCenter(MakerAll.transform)
 
     --
     if trackerType == "Once" or loadedType == 1 then
@@ -2622,6 +2814,14 @@ function update()
             --
             DEBUG.TaskInfo()
         end
+    end
+
+    --播放视频
+    if VIDEO.needUpdateProcess then
+        --同步当前视频时间戳
+        VIDEO.currentTimeStamp.text = VIDEO.CalculateTime(VIDEO.videoPlayer.time)
+        --更新进度条
+        VIDEO.progressSlider.value = VIDEO.videoPlayer.time
     end
 end
 

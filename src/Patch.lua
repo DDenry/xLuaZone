@@ -1,5 +1,5 @@
 --TODO: Here's patch codes.
----2018年9月19日17点30分
+---2019年1月4日 11点21分
 local GameObject = CS.UnityEngine.GameObject
 local content = "The solution will come out soon while the bug checked out has fixed!"
 
@@ -38,6 +38,9 @@ end
 local LoadBundle = coroutine.resume(coroutine.create(
         function()
             local uri = "file://D:/Project/Code/MiniProgram/Assets/AssetBundle/assetsbundle"
+
+            print("Script assetsbundle's path is " .. uri)
+
             local webRequest = CS.UnityEngine.Networking.UnityWebRequestAssetBundle.GetAssetBundle(uri)
 
             yield_return(webRequest:Send())
@@ -55,7 +58,6 @@ local LoadBundle = coroutine.resume(coroutine.create(
             --
             local rootGameObjects = CS.UnityEngine.SceneManagement.SceneManager:GetActiveScene():GetRootGameObjects()
             for i = 0, rootGameObjects.Length - 1 do
-                print(rootGameObjects[i].name)
                 --
                 if rootGameObjects[i].name == "LuaController_Enter" then
                     luaBehaviours['Enter'] = rootGameObjects[i]:GetComponent(typeof(CS.XLuaBehaviour))
