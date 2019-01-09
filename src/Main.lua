@@ -1422,7 +1422,6 @@ end
 
 --执行相应的功能
 function PROCESS.StartAimedFunction()
-    doType = "video"
 
     LogInfo("DoType", doType)
 

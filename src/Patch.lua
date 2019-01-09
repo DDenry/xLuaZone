@@ -1,8 +1,8 @@
 --TODO: Here's patch codes.
----2019年1月4日 11点21分
+---2019年1月9日 14点37分
 local GameObject = CS.UnityEngine.GameObject
 local content = "The solution will come out soon while the bug checked out has fixed!"
-
+local Debug = CS.UnityEngine.Debug
 local version_patch = "1.1"
 
 ---
@@ -20,7 +20,8 @@ local luaBehaviours = {
     ['Function'] = nil,
     ['Error'] = nil,
     ['FingerOperator_Camera'] = nil,
-    ['FingerOperator_Model'] = nil
+    ['FingerOperator_Model'] = nil,
+    ['MulModelList_DataSource'] = nil
 }
 
 
@@ -37,6 +38,7 @@ end
 --TODO:从指定地址加载bundle
 local LoadBundle = coroutine.resume(coroutine.create(
         function()
+            --更新脚本bundle地址
             local uri = "file://D:/Project/Code/MiniProgram/Assets/AssetBundle/assetsbundle"
 
             print("Script assetsbundle's path is " .. uri)
@@ -57,53 +59,61 @@ local LoadBundle = coroutine.resume(coroutine.create(
 
             --
             local rootGameObjects = CS.UnityEngine.SceneManagement.SceneManager:GetActiveScene():GetRootGameObjects()
+
             for i = 0, rootGameObjects.Length - 1 do
-                --
                 if rootGameObjects[i].name == "LuaController_Enter" then
-                    luaBehaviours['Enter'] = rootGameObjects[i]:GetComponent(typeof(CS.XLuaBehaviour))
+                    if rootGameObjects[i]:GetComponent(typeof(CS.XLuaBehaviour)) ~= nil then
+                        --Enter.lua
+                        luaBehaviours['Enter'] = rootGameObjects[i]:GetComponent(typeof(CS.XLuaBehaviour))
+                    end
                 elseif rootGameObjects[i].name == "Root" then
-                    luaBehaviours['FingerOperator_Model'] = rootGameObjects[i].transform:Find("Models/Contents"):GetComponent(typeof(CS.XLuaBehaviour))
-                    luaBehaviours['FingerOperator_Camera'] = rootGameObjects[i].transform:Find("Models/Camera"):GetComponent(typeof(CS.XLuaBehaviour))
+                    if rootGameObjects[i].transform:Find("Models/Contents"):GetComponent(typeof(CS.XLuaBehaviour)) ~= nil then
+                        --FingerOperator_Model.lua
+                        luaBehaviours['FingerOperator_Model'] = rootGameObjects[i].transform:Find("Models/Contents"):GetComponent(typeof(CS.XLuaBehaviour))
+                    end
+
+                    if rootGameObjects[i].transform:Find("Models/Camera"):GetComponent(typeof(CS.XLuaBehaviour)) ~= nil then
+                        --FingerOperator_Camera.lua
+                        luaBehaviours['FingerOperator_Camera'] = rootGameObjects[i].transform:Find("Models/Camera"):GetComponent(typeof(CS.XLuaBehaviour))
+                    end
+
+                    if rootGameObjects[i].transform:Find("UI/Main UI Canvas/MulModelList"):GetComponent(typeof(CS.XLuaBehaviour)) ~= nil then
+                        --FingerOperator_Camera.lua
+                        luaBehaviours['MulModelList_DataSource'] = rootGameObjects[i].transform:Find("UI/Main UI Canvas/MulModelList"):GetComponent(typeof(CS.XLuaBehaviour))
+                    end
+
                 elseif rootGameObjects[i].name == "MainController" then
-                    luaBehaviours['Main'] = rootGameObjects[i].transform:Find("LuaBehavior_Main"):GetComponent(typeof(CS.XLuaBehaviour))
-                    luaBehaviours['Function'] = rootGameObjects[i].transform:Find("LuaController_Function"):GetComponent(typeof(CS.XLuaBehaviour))
-                    luaBehaviours['Error'] = rootGameObjects[i].transform:Find("LuaController_ErrorHandler"):GetComponent(typeof(CS.XLuaBehaviour))
-                    luaBehaviours['Camera_AutoFocus'] = rootGameObjects[i].transform:Find("LuaController_CameraAutoFocus"):GetComponent(typeof(CS.XLuaBehaviour))
+                    if rootGameObjects[i].transform:Find("LuaBehavior_Main"):GetComponent(typeof(CS.XLuaBehaviour)) ~= nil then
+                        luaBehaviours['Main'] = rootGameObjects[i].transform:Find("LuaBehavior_Main"):GetComponent(typeof(CS.XLuaBehaviour))
+                    end
+
+                    if rootGameObjects[i].transform:Find("LuaController_Function"):GetComponent(typeof(CS.XLuaBehaviour)) ~= nil then
+                        luaBehaviours['Function'] = rootGameObjects[i].transform:Find("LuaController_Function"):GetComponent(typeof(CS.XLuaBehaviour))
+                    end
+
+                    if rootGameObjects[i].transform:Find("LuaController_ErrorHandler"):GetComponent(typeof(CS.XLuaBehaviour)) ~= nil then
+                        luaBehaviours['Error'] = rootGameObjects[i].transform:Find("LuaController_ErrorHandler"):GetComponent(typeof(CS.XLuaBehaviour))
+                    end
+
+                    if rootGameObjects[i].transform:Find("LuaController_CameraAutoFocus"):GetComponent(typeof(CS.XLuaBehaviour)) ~= nil then
+                        luaBehaviours['Camera_AutoFocus'] = rootGameObjects[i].transform:Find("LuaController_CameraAutoFocus"):GetComponent(typeof(CS.XLuaBehaviour))
+                    end
                 end
             end
 
             for i = 0, assets.allAssets.Length - 1 do
-                --将lua脚本匹配到场景中
-                ---LUA:相机自动对焦
-                if assets.allAssets[i].name == "Camera_AutoFocus.lua" then
-                    --Main Storyboard:GetComponent(typeof(CS.XLuaBehaviour)).luaScript
-                    luaBehaviours['Camera_AutoFocus'].luaScript = assets.allAssets[i]
+                --
+                local _name = assets.allAssets[i].name:sub(1, assets.allAssets[i].name:find(".lua") - 1)
+
+                if luaBehaviours[_name] ~= nil then
+
+                    luaBehaviours[_name].luaScript = assets.allAssets[i]
+
                     print("Xlua script " .. assets.allAssets[i].name .. " has updated!")
-                    ---LUA:程序入口
-                elseif assets.allAssets[i].name == "Enter.lua" then
-                    luaBehaviours['Enter'].luaScript = assets.allAssets[i]
-                    print("Xlua script " .. assets.allAssets[i].name .. " has updated!")
-                    ---LUA:Main
-                elseif assets.allAssets[i].name == "Main.lua" then
-                    luaBehaviours['Main'].luaScript = assets.allAssets[i]
-                    print("Xlua script " .. assets.allAssets[i].name .. " has updated!")
-                    ---LUA:Function
-                elseif assets.allAssets[i].name == "Function.lua" then
-                    luaBehaviours['Function'].luaScript = assets.allAssets[i]
-                    print("Xlua script " .. assets.allAssets[i].name .. " has updated!")
-                    ---LUA:错误处理
-                elseif assets.allAssets[i].name == "Error.lua" then
-                    luaBehaviours['Error'].luaScript = assets.allAssets[i]
-                    print("Xlua script " .. assets.allAssets[i].name .. " has updated!")
-                    ---LUA:手势操作（相机距离缩放）
-                elseif assets.allAssets[i].name == "FingerOperator_Camera.lua" then
-                    luaBehaviours['FingerOperator_Camera'].luaScript = assets.allAssets[i]
-                    print("Xlua script " .. assets.allAssets[i].name .. " has updated!")
-                    ---LUA:手势操作（模型旋转、移动）
-                elseif assets.allAssets[i].name == "FingerOperator_Model.lua" then
-                    luaBehaviours['FingerOperator_Model'].luaScript = assets.allAssets[i]
-                    print("Xlua script " .. assets.allAssets[i].name .. " has updated!")
+                else
+                    Debug.LogWarning("Xlua script " .. assets.allAssets[i].name .. " has no matched!")
                 end
+
             end
 
             --
@@ -127,7 +137,7 @@ if self.version ~= nil then
     local c = tonumber(version_patch:sub(version_patch:find(".") + 1))
 
     --判断大版本号
-    if V - v == 0 then
+    if V == v then
         --判断小版本号
         if C - c <= 0 then
             --程序在运行过程中检测到补丁
