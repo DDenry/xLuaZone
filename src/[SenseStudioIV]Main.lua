@@ -270,6 +270,7 @@ end
 local Application = CS.UnityEngine.Application
 local RuntimePlatform = CS.UnityEngine.RuntimePlatform
 local Screen = CS.UnityEngine.Screen
+local SceneManager = CS.UnityEngine.SceneManagement.SceneManager
 local GameObject = CS.UnityEngine.GameObject
 local Debug = CS.UnityEngine.Debug
 local Transform = CS.UnityEngine.Transform
@@ -331,7 +332,7 @@ local PageListScrollRect = PageList.transform:Find("TileView/ScrollRect").gameOb
 local CustomTileView = PageList.transform:Find("TileView").gameObject:GetComponent(typeof(CS.SubScene.CustomTileView))
 local CustomTileViewDataSource = PageList.transform:Find("TileView").gameObject:GetComponent(typeof(CS.SubScene.CustomTileViewDataSource))
 --
-local StudioDataManager = CS.SceneStudio.StudioDataManager.Instance
+local StudioDataManager
 local CallbackFromWebToUnity
 local CameraBG = Models.transform:Find("Camera BG").gameObject
 local CameraModel = Models.transform:Find("Camera").gameObject
@@ -417,6 +418,8 @@ local urlParameters = {}
 local doType
 local urlHead
 local pageIndex
+local projectPath
+local sceneGuid
 local assetBundle_url
 local sceneName
 local pageName
@@ -1338,27 +1341,41 @@ function CALLBACK.MarkerJSONLoaded(markerJson)
 
     --解析配置文件
     local markerTxt = JSON.Parse(markerJson)
+
+    local markerInfos = CS.Newtonsoft.Json.JsonConvert.DeserializeObject(markerJson,typeof(CS.SubScene.MarkerInfo))
+
+    print(markerInfos.Count)
+
     --markerTxt.Count 元素数量
     --遍历
     for i = 0, markerTxt.Count - 1 do
+        print(tostring(markerTxt[i][0]))
+        print(tostring(markerTxt[i][1]))
+        print(tostring(markerTxt[i][2]))
+        print(tostring(markerTxt[i][3]))
+        print(tostring(markerTxt[i][4]))
         --
         local table_MarkerJson = {}
 
         --将相应的识别图与模型匹配
-        --获取markerName
+        --获取projectPath
         _, _, _, table_MarkerJson[1] = string.find(tostring(markerTxt[i][0]), "([\"'])(.-)%1")
         --截取掉空格
         table_MarkerJson[1] = table_MarkerJson[1]:trim()
-        --获取sceneName
+        --获取sceneGuid
         _, _, _, table_MarkerJson[2] = string.find(tostring(markerTxt[i][1]), "([\"'])(.-)%1")
-        --获取pageName
+        --获取sceneName
         _, _, _, table_MarkerJson[3] = string.find(tostring(markerTxt[i][2]), "([\"'])(.-)%1")
-        --获取modelName
+        --获取pageName
         _, _, _, table_MarkerJson[4] = string.find(tostring(markerTxt[i][3]), "([\"'])(.-)%1")
-        --获取haveMulModel
+        --获取modelName
         _, _, _, table_MarkerJson[5] = string.find(tostring(markerTxt[i][4]), "([\"'])(.-)%1")
-        --sectionNum
+        --markerName
         _, _, _, table_MarkerJson[6] = string.find(tostring(markerTxt[i][5]), "([\"'])(.-)%1")
+        --sortingName
+        _, _, _, table_MarkerJson[7] = string.find(tostring(markerTxt[i][6]), "([\"'])(.-)%1")
+        --haveModels
+        _, _, _, table_MarkerJson[8] = string.find(tostring(markerTxt[i][7]), "([\"'])(.-)%1")
 
         --
         table_MarkerToModel[#table_MarkerToModel + 1] = table_MarkerJson
@@ -1388,6 +1405,9 @@ end
 
 --PageListSelect回调
 function CALLBACK.PageListSelected(url)
+
+    --pagelist://do?#index|projectPath=projectPath&sceneGuid=sceneGuid&sceneName=assetBundlePath&modelName=modelName&haveModels=htmlPath&sectionNum=sectionNum
+
     LogInfo("PageListSelected_CallBack:" .. url)
 
     --选择事件
@@ -1406,6 +1426,7 @@ function CALLBACK.PageListSelected(url)
                         --释放已加载的模型
                         CALLBACK.ModelUnloaded()
                     end
+
                     --解析url
                     PROCESS.URLInterpreter(url)
 
@@ -1423,18 +1444,15 @@ end
 --执行相应的功能
 function PROCESS.StartAimedFunction()
 
-    doType = "video"
-
-    LogInfo("DoType", doType)
+    LogInfo("Protocol's doType is " .. doType)
 
     if doType == "do" then
         --模型浏览
         PROCEDURE.StartScanModelScene()
 
     elseif doType == "video" then
-        --
         TaskDoneListener:Invoke("VideoPlaying")
-        --播放视频
+
         PROCEDURE.PlayVideo()
     else
         doType = "model"
@@ -1483,9 +1501,6 @@ function VIDEO.InitVideoPlayer()
     end)
 
     eventTrigger.triggers:Add(entry)
-
-    --
-    VIDEO.prepareProgress()
 end
 
 --根据视频帧数/视频帧率计算时间
@@ -1551,7 +1566,7 @@ function VIDEO.videoPrepared()
     VIDEO.progressSlider.value = 0.0
 
     --重置VideoPlayer进度条
-    VIDEO.videoPlayer.time = VIDEO.videoProgress[currentMarkerGameObject.name]
+    VIDEO.videoPlayer.time = 0.0
 
     --播放视频的模式下显示UI
     VIDEO.UI:SetActive(true)
@@ -1561,17 +1576,6 @@ function VIDEO.videoPrepared()
 
     --
     VIDEO.needUpdateProcess = true
-end
-
-VIDEO.videoProgress = {}
-
-function VIDEO.prepareProgress()
-
-    for i = 0, VUFORIA.dynamicTargetsArray.Length - 1 do
-        --
-        VIDEO.videoProgress[VUFORIA.dynamicTargetsArray[i].name] = 0.0
-    end
-
 end
 
 --播放视频功能
@@ -1595,8 +1599,6 @@ function PROCEDURE.PlayVideo()
 
         else
             LogInfo(currentMarkerGameObject.name .. " has loaded its video!")
-            --TODO:需要续播
-
         end
 
         VIDEO.videoPlayer.targetMaterialRenderer = currentMarkerGameObject.transform:Find("VideoQuad"):GetComponent("MeshRenderer")
@@ -1972,7 +1974,6 @@ end
 function VUFORIA.FindDynamicTarget()
     --获取场景中所有GameObject
     local arr_DynamicTargets = GameObject.FindObjectsOfType(typeof(CS.Vuforia.ImageTargetBehaviour))
-
     LogInfo("arr_DynamicTargets.Length:" .. arr_DynamicTargets.Length)
 
     --判断Tracker识别类型(Once/Always)
@@ -2004,7 +2005,7 @@ function VUFORIA.FindDynamicTarget()
                 --
                 arr_DynamicTargets[i].gameObject:AddComponent(typeof(Vuforia.TurnOffBehaviour))
 
-                print("" .. arr_DynamicTargets[i].gameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget.Name)
+                print(arr_DynamicTargets[i].gameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget.Name)
                 --获取到识别图的大小
                 print(arr_DynamicTargets[i].gameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget:GetSize())
 
@@ -2027,9 +2028,6 @@ function VUFORIA.FindDynamicTarget()
 
     --
     LogInfo("Add Script to DynamicTargets!")
-
-    --
-    VUFORIA.dynamicTargetsArray = arr_DynamicTargets
 
     --MarkerJson处理完成
     --设置相应场景类型所需回调
@@ -2075,19 +2073,24 @@ function CALLBACK.TrackingFound(DynamicTarget)
 
     --
     for i = 1, #table_MarkerToModel do
+
         --遍历列表寻找识别物匹配的模型
-        if string.gsub(DynamicTarget.name, "DynamicTarget", "") == "-" .. table_MarkerToModel[i][1] then
+        if string.gsub(DynamicTarget.name, "DynamicTarget", "") == "-" .. table_MarkerToModel[i][6] then
             --解析Marker信息
+            --projectPath
+            projectPath = ((table_MarkerToModel[i][1] == nil) and "") or table_MarkerToModel[i][1]
+            --sceneGuid
+            sceneGuid = ((table_MarkerToModel[i][2] == nil) and "") or table_MarkerToModel[i][2]
             --sceneName
-            sceneName = ((table_MarkerToModel[i][2] == nil) and "") or table_MarkerToModel[i][2]
+            sceneName = ((table_MarkerToModel[i][3] == nil) and "") or table_MarkerToModel[i][3]
             --pageName
-            pageName = ((table_MarkerToModel[i][3] == nil) and "") or table_MarkerToModel[i][3]
+            pageName = ((table_MarkerToModel[i][4] == nil) and "") or table_MarkerToModel[i][4]
             --设置模型名称name
-            modelName = ((table_MarkerToModel[i][4] == nil) and "") or table_MarkerToModel[i][4]
+            modelName = ((table_MarkerToModel[i][5] == nil) and "") or table_MarkerToModel[i][5]
             --
-            haveMulModel = ((table_MarkerToModel[i][5] == nil) and "") or table_MarkerToModel[i][5]
+            sectionNum = ((table_MarkerToModel[i][7] == nil) and "") or ((string.len(tostring(table_MarkerToModel[i][7])) > 1 and "") or table_MarkerToModel[i][7])
             --
-            sectionNum = ((table_MarkerToModel[i][6] == nil) and "") or ((string.len(tostring(table_MarkerToModel[i][6])) > 1 and "") or table_MarkerToModel[i][6])
+            haveMulModel = ((table_MarkerToModel[i][8] == nil) and "") or table_MarkerToModel[i][8]
 
             --如果显示模式为UIWidget
             if pageListType == pageListType_UIWidget then
@@ -2123,8 +2126,8 @@ function CALLBACK.TrackingFound(DynamicTarget)
 
             --需要加载模型
             if needLoad then
-                --pagelist://model?url1=p2-20/assetbundle&url2=modelName&url3=&url4=3
-                local url = "pagelist://doType?sceneName=" .. sceneName .. "&pageName=" .. pageName .. "&modelName=" .. modelName .. "&haveMulModel=" .. haveMulModel .. "&sectionNum=" .. sectionNum
+                --pagelist://do?#index|projectPath=projectPath&sceneGuid=sceneGuid&sceneName=assetBundlePath&modelName=modelName&haveModels=htmlPath&sectionNum=sectionNum
+                local url = "pagelist://doType?#" .. (i - 1) .. "|projectPath=" .. projectPath .. "&sceneGuid=" .. sceneGuid .. "&sceneName=" .. sceneName .. "&pageName=" .. pageName .. "&modelName=" .. modelName .. "&haveMulModel=" .. haveMulModel .. "&sectionNum=" .. sectionNum
 
                 --加载模型
                 CALLBACK.PageListSelected(url)
@@ -2152,26 +2155,18 @@ end
 
 --TrackingLost回调
 function CALLBACK.TrackingLost(DynamicTarget)
-
+    --
+    currentMarkerGameObject = nil
     local DynamicTargetName = DynamicTarget.name
-
     LogInfo(DynamicTargetName .. " Lost!")
 
     --
     if DynamicTarget.gameObject.transform:Find("VideoQuad") ~= nil then
+        --隐藏视频播放UI
+        VIDEO.UI:SetActive(false)
 
-        if VIDEO.UI.activeSelf then
-            --隐藏视频播放UI
-            VIDEO.UI:SetActive(false)
-
-            --暂停视频播放
-            PROCEDURE.PauseVideo()
-
-            --暂存播放进度
-            VIDEO.videoProgress[DynamicTargetName] = VIDEO.videoPlayer.time
-
-            print("Temp progress saved [" .. DynamicTargetName .. "]=>" .. VIDEO.videoProgress[DynamicTargetName])
-        end
+        --暂停视频播放
+        PROCEDURE.PauseVideo()
     end
 
     --
@@ -2180,9 +2175,6 @@ function CALLBACK.TrackingLost(DynamicTarget)
     end
 
     MainSubtitleText.text = ""
-
-    --丢失当前marker
-    currentMarkerGameObject = nil
 end
 
 --添加按钮监听
@@ -2376,28 +2368,89 @@ function PROCEDURE.StartScanModelScene()
             PageListScrollRect:SetActive(false)
         end
 
-        --注册StudioData加载回调监听
-        --StudioData LoadedFinish
-        COMMON.RegisterListener(StudioDataManager.LoadFinished, function()
+        ---判断协议格式所对应的加载类型
 
-            --注销回调监听
-            COMMON.UnregisterListener(StudioDataManager.LoadFinished)
+        local SenseStudioNameSpace
 
-            --尝试性的垃圾回收
-            COMMON.CollectGarbage()
+        if projectPath ~= nil and projectPath ~= "" and sceneGuid ~= nil and sceneGuid ~= "" then
+            --获取SenseStudioIV的DataManager实例
+            StudioDataManager = CS.SenseStudio.IV.StudioDataManager.Instance
 
-            --模型加载完毕
-            assert(coroutine.resume(coroutine.create(CALLBACK.ModelLoaded), TaskDoneListener))
-        end)
+            SenseStudioNameSpace = "SenseStudio.IV.StudioDataManager"
 
-        --此处是超级耗时的操作
-        assert(coroutine.resume(coroutine.create(function()
-            --延迟一帧
-            yield_return(1)
+            LogInfo("SenseStudio NameSpace", SenseStudioNameSpace)
 
-            --开始加载Studio数据
-            StudioDataManager:LoadFromMobile(wwwAssetPath .. sceneName .. "/")
-        end)))
+            --Studio Project Loaded回调
+            COMMON.RegisterListener(StudioDataManager.OnProjectLoaded, function()
+
+                --注销回调监听
+                COMMON.UnregisterListener(StudioDataManager.OnProjectLoaded)
+
+                --尝试性的垃圾回收
+                COMMON.CollectGarbage()
+
+                --场景Loaded回调
+                COMMON.RegisterListener(StudioDataManager.OnSceneResourceLoaded, function()
+
+                    --注销回调监听
+                    COMMON.UnregisterListener(StudioDataManager.OnSceneResourceLoaded)
+
+                    --模型加载完毕
+                    assert(coroutine.resume(coroutine.create(CALLBACK.ModelLoaded), TaskDoneListener))
+                end)
+
+                assert(coroutine.resume(coroutine.create(function()
+                    --延迟一帧
+                    yield_return(1)
+
+                    --加载场景
+                    StudioDataManager:LoadScene(sceneGuid)
+                end)))
+
+            end)
+
+            --此处是超级耗时的操作
+            assert(coroutine.resume(coroutine.create(function()
+                --延迟一帧
+                yield_return(1)
+
+                --开始加载Studio数据
+                StudioDataManager:LoadIVFromMobile(wwwAssetPath .. projectPath)
+            end)))
+
+        else
+            --获取SenseStudioIII的DataManager实例
+            StudioDataManager = CS.SceneStudio.StudioDataManager.Instance
+
+            SenseStudioNameSpace = "SceneStudio.StudioDataManager"
+
+            LogInfo("SenseStudio NameSpace", SenseStudioNameSpace)
+
+            --StudioData LoadedFinish
+            COMMON.RegisterListener(StudioDataManager.LoadFinished, function()
+
+                --注销回调监听
+                COMMON.UnregisterListener(StudioDataManager.LoadFinished)
+
+                --尝试性的垃圾回收
+                COMMON.CollectGarbage()
+
+                --模型加载完毕
+                assert(coroutine.resume(coroutine.create(CALLBACK.ModelLoaded), TaskDoneListener))
+            end)
+
+            --此处是超级耗时的操作
+            assert(coroutine.resume(coroutine.create(function()
+                --延迟一帧
+                yield_return(1)
+
+                --开始加载Studio数据
+                StudioDataManager:LoadFromMobile(wwwAssetPath .. sceneName .. "/")
+            end)))
+        end
+
+        _Global:SetData("SenseStudioNameSpace", SenseStudioNameSpace)
+
     end)
 
     --
@@ -2531,8 +2584,37 @@ function CALLBACK.ModelLoaded(...)
     --判断加载方式(VR/AR)
     backType = loadedType
 
-    --获取模型
-    local MakerAll = GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll")
+    local MakerAll
+
+    local objectDataType
+
+    if _Global:GetData("SenseStudioNameSpace") == "SceneStudio.StudioDataManager" then
+
+        objectDataType = CS.SceneStudio.ObjectData
+
+        MakerAll = GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll")
+
+    elseif _Global:GetData("SenseStudioNameSpace") == "SenseStudio.IV.StudioDataManager" then
+
+        objectDataType = CS.SenseStudio.IV.RuntimeData.ObjectData
+
+        --获取模型
+        for i = 0, SceneManager.GetActiveScene():GetRootGameObjects().Length - 1 do
+
+            if (SceneManager.GetActiveScene():GetRootGameObjects()[i]:GetComponent(typeof(CS.SenseStudio.IV.RuntimeData.SceneData)) ~= nil) then
+
+                MakerAll = SceneManager.GetActiveScene():GetRootGameObjects()[i]
+
+                print("Found scene node :" .. MakerAll.name)
+
+                local makerAll = GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll")
+
+                MakerAll.transform:SetParent(makerAll.transform)
+
+                break ;
+            end
+        end
+    end
 
     --[自动计算模型中心点]
     --PROCESS.AutoCalculateCenter(MakerAll.transform)
@@ -2541,8 +2623,8 @@ function CALLBACK.ModelLoaded(...)
     if trackerType == "Once" or loadedType == 1 then
 
         --设置所加载的模型Layer为model层
-        for i = 0, MakerAll:GetComponentsInChildren(typeof(CS.SceneStudio.ObjectData)).Length - 1 do
-            MakerAll:GetComponentsInChildren(typeof(CS.SceneStudio.ObjectData))[i].gameObject.layer = 8
+        for i = 0, MakerAll:GetComponentsInChildren(typeof(objectDataType)).Length - 1 do
+            MakerAll:GetComponentsInChildren(typeof(objectDataType))[i].gameObject.layer = 8
         end
 
         --判断是否要打开第二页
@@ -2641,7 +2723,7 @@ end
 
 --解析URL,分离所需参数
 function PROCESS.URLInterpreter(url)
-    --pagelist://doType?#index|sceneName=assetBundlePath&modelName=modelName&haveModels=htmlPath&sectionNum=sectionNum
+    --pagelist://doType?#index|projectPath=projectPath&sceneGuid=sceneGuid&modelName=modelName&haveModels=htmlPath&sectionNum=sectionNum
     local url_head_pos = url:find('://')
     local url_head = url:sub(1, url_head_pos - 1)
     --获取到urlHead
@@ -2649,8 +2731,8 @@ function PROCESS.URLInterpreter(url)
     local sub_url_head = url:gsub(url_head .. "://", "")
     local do_type = sub_url_head:sub(1, sub_url_head:find('?') - 1)
 
-    --获取到doType
-    urlParameters['doType'] = do_type
+    --赋值doType
+    urlParameters['doType'] = "do"
 
     --?sceneName='sceneName'&pageName='pageName'&modelName='modelName'&haveMulModel='haveMulModel'&sectionNum='sectionNum'
     local sub_do_type = sub_url_head:gsub(do_type, ""):sub(2)
@@ -2661,7 +2743,7 @@ function PROCESS.URLInterpreter(url)
         sub_do_type = sub_do_type:sub(sub_do_type:find("|") + 1)
     end
     --
-    for i, parameter in pairs(sub_do_type:split('&')) do
+    for _, parameter in pairs(sub_do_type:split('&')) do
         --argument=sceneName='sceneName'
         local parameter_name = parameter:sub(1, parameter:find("=") - 1)
         urlParameters[parameter_name] = parameter:sub(parameter:find("=") + 1)
@@ -2670,16 +2752,22 @@ end
 
 --给模型浏览场景所需参数赋值
 function PROCESS.SetParameters()
+
     local count = 0
+
     for i, parameter in pairs(urlParameters) do
+
         count = count + 1
-        LogInfo("parameter " .. i, parameter)
+
+        LogInfo("parameter >>> " .. i, parameter)
     end
 
     if count > 0 then
         doType = (urlParameters['doType'] ~= nil and urlParameters['doType']) or nil
         urlHead = (urlParameters['urlHead'] ~= nil and urlParameters['urlHead']) or nil
         pageIndex = (urlParameters['pageIndex'] ~= nil and urlParameters['pageIndex']) or nil
+        projectPath = (urlParameters['projectPath'] ~= nil and urlParameters['projectPath']) or nil
+        sceneGuid = (urlParameters['sceneGuid'] ~= nil and urlParameters['sceneGuid']) or nil
         sceneName = (urlParameters['sceneName'] ~= nil and urlParameters['sceneName']) or nil
         pageName = (urlParameters['pageName'] ~= nil and urlParameters['pageName']) or nil
         modelName = (urlParameters['modelName'] ~= nil and urlParameters['modelName']) or nil
@@ -2690,7 +2778,6 @@ function PROCESS.SetParameters()
     _Global:SetData("sceneName", sceneName)
     --
     _Global:SetData("selectedPageName", pageName)
-
     --
     _Global:SetData("_sectionNum", sectionNum)
     --
@@ -2770,16 +2857,23 @@ function PROCESS.ControlBack()
         if loadedModel then
             CALLBACK.ModelUnloaded()
         end
+
         --销毁CallbackFromWebToUnity_MulModelPage
         if pageListType == pageListType_H5 then
+
             if ((CallbackFromWebToUnity_MulModelPage ~= nil) and (CallbackFromWebToUnity_MulModelPage._webView ~= nil)) then
+
                 CallbackFromWebToUnity_MulModelPage:destroy()
+
             end
+
         elseif pageListType == pageListType_UIWidget then
+
             if MulModelList.activeSelf then
                 --隐藏多模型列表
                 MulModelList:SetActive(false)
             end
+
         end
 
         --隐藏多模型下拉按钮
@@ -2795,6 +2889,11 @@ function PROCESS.ControlBack()
 
         --显示AR/VR按钮
         ListButtonGroup:SetActive(true)
+
+        --
+        if _Global:GetData("SenseStudioNameSpace") == "SenseStudio.IV.StudioDataManager" then
+            StudioDataManager:UnloadCuurentProject()
+        end
 
         --
         CustomTileView:DeselectItemAt(CustomTileView:GetSelectedIndex())
