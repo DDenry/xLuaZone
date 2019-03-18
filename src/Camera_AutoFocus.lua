@@ -29,7 +29,7 @@ function onenable()
                 else
                     print("The device cannot focus!")
                 end
-                yield_return(CS.UnityEngine.WaitForSeconds(1.0))
+                yield_return(CS.UnityEngine.WaitForSeconds(3.0))
 
                 --获取传值
                 state = coroutine.yield()
@@ -46,7 +46,7 @@ function onenable()
 
                 if coroutine.status(COROUTINE_CAMERA_AUTOFOCUS) == "suspended" then
                     assert(coroutine.resume(COROUTINE_CAMERA_AUTOFOCUS, true))
-                    yield_return(CS.UnityEngine.WaitForSeconds(3.0))
+                    yield_return(CS.UnityEngine.WaitForSeconds(5.0))
                 end
             until COROUTINE_CAMERA_AUTOFOCUS == nil
         end)))

@@ -14,7 +14,10 @@ local DEBUG = {}
 local CALLBACK = {}
 local PROCESS = {}
 local PROCEDURE = {}
+local MEDIA = {}
+local AUDIO = {}
 local VIDEO = {}
+local USERINTERFACE = {}
 local WEBVIEW = {}
 local VUFORIA = {}
 local APPTYPE = {
@@ -272,6 +275,7 @@ local RuntimePlatform = CS.UnityEngine.RuntimePlatform
 local Screen = CS.UnityEngine.Screen
 local GameObject = CS.UnityEngine.GameObject
 local Debug = CS.UnityEngine.Debug
+local Color = CS.UnityEngine.Color
 local Transform = CS.UnityEngine.Transform
 local Quaternion = CS.UnityEngine.Quaternion
 local Vector2 = CS.UnityEngine.Vector2
@@ -287,6 +291,7 @@ local Vuforia = CS.Vuforia
 local VuforiaBehaviour = Vuforia.VuforiaBehaviour
 local VuforiaConfiguration = Vuforia.VuforiaConfiguration
 local Input = CS.UnityEngine.Input
+local Time = CS.UnityEngine.Time
 --
 local MainStoryboard = GameObject.Find("Main Storyboard")
 local EzStoryboardPlayer = MainStoryboard:GetComponent("EzStoryboardPlayer")
@@ -441,25 +446,31 @@ local backGroundColor = {
     a = TitleImage.color.a
 }
 
+--AUDIO
+AUDIO.audioSource = Root.transform:Find("Functions/AudioPlayerController"):GetComponent("AudioSource")
+
 --VIDEO Variable
-VIDEO.UI = MainUICanvas.transform:Find("VideoPlayer").gameObject
+MEDIA.UI = MainUICanvas.transform:Find("MediaUI").gameObject
 --videoPlayer
-VIDEO.videoQuad = Root.transform:Find("TmpSave/VideoQuad")
+VIDEO.mediaQuad = Root.transform:Find("TmpSave/MediaQuad")
 
 VIDEO.videoPlayer = Root.transform:Find("Functions/VideoPlayerController"):GetComponent("VideoPlayer")
---progressSlider
-VIDEO.progressSlider = VIDEO.UI.transform:Find("NavigationBar/ProgressBar/Slider"):GetComponent("Slider")
---
-VIDEO.fillContent = VIDEO.progressSlider.gameObject.transform:Find("Fill Area/Fill"):GetComponent("Image")
 
+VIDEO.renderFullScreenRawImage = MEDIA.UI.transform:Find("VideoRender"):GetComponent("RawImage")
+VIDEO.renderFullScreenButton = MEDIA.UI.transform:Find("VideoRender"):GetComponent("Button")
+
+--progressSlider
+MEDIA.progressSlider = MEDIA.UI.transform:Find("NavigationBar/ProgressBar/Slider"):GetComponent("Slider")
+--
+MEDIA.fillContent = MEDIA.progressSlider.gameObject.transform:Find("Fill Area/Fill"):GetComponent("Image")
 --CurrentTimeStamp
-VIDEO.currentTimeStamp = VIDEO.UI.transform:Find("NavigationBar/ProgressBar/CurrentTimeStamp"):GetComponent("Text")
+MEDIA.currentTimeStamp = MEDIA.UI.transform:Find("NavigationBar/ProgressBar/CurrentTimeStamp"):GetComponent("Text")
 --TotalTimeStamp
-VIDEO.totalTimeStamp = VIDEO.UI.transform:Find("NavigationBar/ProgressBar/TotalTimeStamp"):GetComponent("Text")
+MEDIA.totalTimeStamp = MEDIA.UI.transform:Find("NavigationBar/ProgressBar/TotalTimeStamp"):GetComponent("Text")
 --buttonPlay
-VIDEO.buttonPlay = VIDEO.UI.transform:Find("NavigationBar/ButtonController/ButtonPlay"):GetComponent("Button")
+MEDIA.buttonPlay = MEDIA.UI.transform:Find("NavigationBar/ButtonController/ButtonPlay"):GetComponent("Button")
 --buttonPause
-VIDEO.buttonPause = VIDEO.UI.transform:Find("NavigationBar/ButtonController/ButtonPause"):GetComponent("Button")
+MEDIA.buttonPause = MEDIA.UI.transform:Find("NavigationBar/ButtonController/ButtonPause"):GetComponent("Button")
 
 --
 function onenable()
@@ -1345,20 +1356,24 @@ function CALLBACK.MarkerJSONLoaded(markerJson)
         local table_MarkerJson = {}
 
         --将相应的识别图与模型匹配
-        --获取markerName
+        --获取projectPath
         _, _, _, table_MarkerJson[1] = string.find(tostring(markerTxt[i][0]), "([\"'])(.-)%1")
         --截取掉空格
         table_MarkerJson[1] = table_MarkerJson[1]:trim()
-        --获取sceneName
+        --获取sceneGuid
         _, _, _, table_MarkerJson[2] = string.find(tostring(markerTxt[i][1]), "([\"'])(.-)%1")
-        --获取pageName
+        --获取sceneName
         _, _, _, table_MarkerJson[3] = string.find(tostring(markerTxt[i][2]), "([\"'])(.-)%1")
-        --获取modelName
+        --获取pageName
         _, _, _, table_MarkerJson[4] = string.find(tostring(markerTxt[i][3]), "([\"'])(.-)%1")
-        --获取haveMulModel
+        --获取modelName
         _, _, _, table_MarkerJson[5] = string.find(tostring(markerTxt[i][4]), "([\"'])(.-)%1")
-        --sectionNum
+        --markerName
         _, _, _, table_MarkerJson[6] = string.find(tostring(markerTxt[i][5]), "([\"'])(.-)%1")
+        --sortingName
+        _, _, _, table_MarkerJson[7] = string.find(tostring(markerTxt[i][6]), "([\"'])(.-)%1")
+        --haveModels
+        _, _, _, table_MarkerJson[8] = string.find(tostring(markerTxt[i][7]), "([\"'])(.-)%1")
 
         --
         table_MarkerToModel[#table_MarkerToModel + 1] = table_MarkerJson
@@ -1423,7 +1438,7 @@ end
 --执行相应的功能
 function PROCESS.StartAimedFunction()
 
-    doType = "video"
+    doType = "media"
 
     LogInfo("DoType", doType)
 
@@ -1431,46 +1446,189 @@ function PROCESS.StartAimedFunction()
         --模型浏览
         PROCEDURE.StartScanModelScene()
 
-    elseif doType == "video" then
+    elseif doType == "media" then
         --
-        TaskDoneListener:Invoke("VideoPlaying")
-        --播放视频
-        PROCEDURE.PlayVideo()
+        TaskDoneListener:Invoke("MediaAction")
+
+        --播放媒体资源
+        MEDIA.Prepare()
     else
         doType = "model"
     end
 
 end
 
---Video播放初始化
-function VIDEO.InitVideoPlayer()
-    --
-    COMMON.RegisterListener(VIDEO.buttonPlay.onClick, function()
-        --
-        VIDEO.buttonPlay.gameObject:SetActive(false)
-        VIDEO.buttonPause.gameObject:SetActive(true)
+MEDIA.currentType = "None"
 
-        VIDEO.videoPlayer.playbackSpeed = 1.0
+--准备Media
+function MEDIA.Prepare()
+    if currentMarkerGameObject ~= nil then
+        --获取到识别到的ImageSize
+        local size = currentMarkerGameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget:GetSize()
 
-        VIDEO.needUpdateProcess = true
+        --根据识别图大小设置视频窗口大小
+        VIDEO.mediaQuad.gameObject.transform.localScale = size
+
+        --在识别图下生成mediaQuad
+        if currentMarkerGameObject.transform:Find("MediaQuad") == nil then
+
+            local mediaQuad = GameObject.Instantiate(VIDEO.mediaQuad, currentMarkerGameObject.transform)
+
+            mediaQuad.name = "MediaQuad"
+
+            --生成Canvas
+            local canvas = GameObject("3DCanvas"):AddComponent(typeof(CS.UnityEngine.Canvas))
+
+            --
+            canvas.renderMode = CS.UnityEngine.RenderMode.WorldSpace
+
+            --
+            canvas.worldCamera = CameraAR:GetComponentInChildren(typeof(CS.UnityEngine.Camera))
+
+            canvas.transform:SetParent(mediaQuad.transform)
+
+            canvas.transform.localRotation = Quaternion.Euler(Vector3.zero)
+
+            canvas.transform.localScale = Vector3.one
+
+            local canvasRect = canvas.gameObject:GetComponent(typeof(CS.UnityEngine.RectTransform)) and canvas.gameObject:GetComponent(typeof(CS.UnityEngine.RectTransform)) or canvas.gameObject:AddComponent(typeof(CS.UnityEngine.RectTransform))
+
+            USERINTERFACE.InitRectTransform(canvasRect)
+
+            canvasRect.sizeDelta = Vector2(size.x, size.y)
+
+            local graphicRaycaster = canvas.transform.gameObject:AddComponent(typeof(CS.UnityEngine.UI.GraphicRaycaster))
+
+            graphicRaycaster.ignoreReversedGraphics = false
+
+            --AudioTip
+            MEDIA.NailAudioTip(canvas, Vector2(4665 / 6305.0, 5205 / 6305.0), 0.2)
+
+            --VideoTip
+            MEDIA.NailVideoTip(canvas, Vector2(1439 / 4604.0, 2452 / 6305.0), Vector2(3096 / 4604.0, 4016 / 6305.0), 0.3)
+
+            --AudioTip
+            MEDIA.NailAudioTip(canvas, Vector2(850 / 6305.0, 1415 / 6305.0), 0.2)
+
+            mediaQuad.gameObject:SetActive(true)
+
+        else
+            LogInfo(currentMarkerGameObject.name .. " has loaded its video!")
+        end
+    end
+end
+
+--钉音频
+function MEDIA.NailAudioTip(parent, anchorHeight, url)
+
+    print("NailAudioTip >>> ")
+
+    local audioTip = GameObject("AudioTip"):AddComponent(typeof(CS.UnityEngine.RectTransform))
+
+    audioTip.transform:SetParent(parent.transform)
+
+    audioTip.transform.localRotation = Quaternion.Euler(Vector3.zero)
+
+    USERINTERFACE.InitRectTransform(audioTip)
+
+    ---根据计算好的位置设置锚点
+    audioTip.anchorMin = Vector2(548 / 4604.0, anchorHeight.x)
+    audioTip.anchorMax = Vector2(3993 / 4604.0, anchorHeight.y)
+
+    ---提示框占比
+    audioTip.sizeDelta = Vector2(0, 0)
+
+    --生成按钮
+    local image = audioTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Image))
+    image.sprite = null
+    image.color = Color.white
+    image.raycastTarget = true
+
+    local button = audioTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Button))
+
+    button.transition = CS.UnityEngine.UI.Selectable.Transition.None
+
+    button.onClick:AddListener(function()
+        print("Audio button click~")
+
+        MEDIA.currentType = "Audio"
+
+        --播放音频
+        AUDIO.PlayAudio(url)
     end)
 
-    COMMON.RegisterListener(VIDEO.buttonPause.onClick, function()
+end
+
+--钉视频
+function MEDIA.NailVideoTip(parent, anchorMin, anchorMax, weight)
+    print("NailVideoTip >>> ")
+
+    local videoTip = GameObject("VideoTip"):AddComponent(typeof(CS.UnityEngine.RectTransform))
+
+    videoTip.transform:SetParent(parent.transform)
+
+    videoTip.transform.localRotation = Quaternion.Euler(Vector3.zero)
+
+    USERINTERFACE.InitRectTransform(videoTip)
+
+    ---根据计算好的位置设置锚点
+    videoTip.anchorMin = anchorMin
+    videoTip.anchorMax = anchorMax
+
+    ---提示框占比
+    videoTip.sizeDelta = Vector2(0, 0)
+
+    --生成按钮
+    local rawImage = videoTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.RawImage))
+    rawImage.texture = nil
+    rawImage.color = Color.white
+    rawImage.raycastTarget = true
+
+    local button = videoTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Button))
+
+    button.transition = CS.UnityEngine.UI.Selectable.Transition.None
+
+    button.onClick:AddListener(function()
+
         --
-        PROCEDURE.PauseVideo()
+        MEDIA.currentType = "Video"
+
+        --记录按下时间
+        local tempTime = Time.realtimeSinceStartup
+
+        if VIDEO.videoPlayer.isPlaying then
+            print("Current video is playing~")
+
+            if tempTime - VIDEO.PressDownStamp < 0.5 then
+                print("Double click!")
+                --
+                VIDEO.renderRawImage.texture = nil
+
+                --将画面渲染设置为RenderImage
+                VIDEO.renderRawImage = VIDEO.renderFullScreenRawImage
+                --打开全屏视频
+                VIDEO.renderFullScreenRawImage.gameObject:SetActive(true)
+
+                --TODO:关闭追踪
+                DataSetLoader:DeactivateDataSet()
+
+            end
+
+            VIDEO.PressDownStamp = tempTime
+        else
+            --播放视频
+            VIDEO.PlayVideo()
+        end
     end)
+end
 
-    VIDEO.videoPlayer.isLooping = true
-
-    --
-    VIDEO.videoPlayer:prepareCompleted("+", VIDEO.videoPrepared)
-
+function MEDIA.initNavigationBar()
     --填充进度条颜色
-    VIDEO.fillContent.color = themeColor
+    MEDIA.fillContent.color = themeColor
 
     --给滑动条添加EventTrigger
-    VIDEO.progressSlider.gameObject:AddComponent(typeof(CS.UnityEngine.EventSystems.EventTrigger))
-    local eventTrigger = VIDEO.progressSlider.gameObject:GetComponent(typeof(CS.UnityEngine.EventSystems.EventTrigger))
+    MEDIA.progressSlider.gameObject:AddComponent(typeof(CS.UnityEngine.EventSystems.EventTrigger))
+    local eventTrigger = MEDIA.progressSlider.gameObject:GetComponent(typeof(CS.UnityEngine.EventSystems.EventTrigger))
 
     --设置滑动条
     local entry = CS.UnityEngine.EventSystems.EventTrigger.Entry()
@@ -1478,18 +1636,21 @@ function VIDEO.InitVideoPlayer()
 
     --拖动回调
     entry.callback:AddListener(function()
-        --设置进度条value到videoPlayer播放time
-        VIDEO.videoPlayer.time = VIDEO.progressSlider.value
+        --
+        if MEDIA.currentType == "Audio" then
+            --设置进度条value到audioSource播放time
+            AUDIO.audioSource.time = MEDIA.progressSlider.value
+        elseif MEDIA.currentType == "Video" then
+            --设置进度条value到videoPlayer播放time
+            VIDEO.videoPlayer.time = MEDIA.progressSlider.value
+        end
     end)
 
     eventTrigger.triggers:Add(entry)
-
-    --
-    VIDEO.prepareProgress()
 end
 
 --根据视频帧数/视频帧率计算时间
-function VIDEO.CalculateTime(time)
+function MEDIA.CalculateTime(time)
 
     if math.ceil(time) == time then
         time = math.ceil(time)
@@ -1526,35 +1687,197 @@ function VIDEO.CalculateTime(time)
     return length
 end
 
+function MEDIA.reset()
+    if AUDIO.audioSource.clip ~= nil then
+        AUDIO.PauseAudio()
+    end
+
+    if VIDEO.videoPlayer.url ~= nil then
+        VIDEO.PauseVideo()
+        --
+        VIDEO.renderRawImage.texture = nil
+    end
+end
+
+--更新音频进度标识量
+AUDIO.needUpdateProcess = false
+
+--Audio播放初始化
+function AUDIO.InitAudioPlayer()
+    --
+    AUDIO.audioSource.playOnAwake = false
+    --设置loop=false
+    AUDIO.audioSource.loop = false
+    --
+    AUDIO.audioSource.mute = false
+end
+
+function AUDIO.audioPrepared()
+    --
+    MEDIA.reset()
+    --
+    AUDIO.audioSource.gameObject:SetActive(true)
+
+    --计算音频时长
+    MEDIA.totalTimeStamp.text = MEDIA.CalculateTime(AUDIO.audioSource.clip.length)
+
+    MEDIA.progressSlider.maxValue = math.ceil(AUDIO.audioSource.clip.length)
+
+    MEDIA.buttonPlay.gameObject:SetActive(false)
+
+    MEDIA.buttonPause.gameObject:SetActive(true)
+
+    --
+    MEDIA.progressSlider.value = 0.0
+
+    --播放模式下显示UI
+    MEDIA.UI:SetActive(true)
+
+    AUDIO.audioSource:Play()
+
+    --
+    AUDIO.needUpdateProcess = true
+end
+
+--
+AUDIO.AudioPlayerCoroutine = coroutine.create(function()
+    --设置音频路径
+    local www = CS.UnityEngine.WWW(wwwAssetPath .. sceneName .. "/audio1.mp3")
+
+    yield_return(www)
+
+    if www.error == nil then
+
+        AUDIO.audioSource.clip = www:GetAudioClip()
+
+        local seconds = www:GetAudioClip().length
+
+        print("Current audio length is " .. seconds .. "s")
+        --
+        AUDIO.audioPrepared()
+
+        --音频播放结束后重置AudioSource
+        --yield_return(CS.UnityEngine.WaitForSeconds(seconds))
+
+        --停止背景音
+        --AUDIO.audioSource.gameObject:SetActive(false)
+    else
+        print("[WWWAudioError]:" .. www.error)
+    end
+end)
+
+--播放音频
+function AUDIO.PlayAudio()
+
+    --判断是否当前正在播放
+    if AUDIO.audioSource.isPlaying then
+        --
+        AUDIO.PauseAudio()
+    else
+        --
+        if AUDIO.audioSource.clip == nil then
+            assert(coroutine.resume(AUDIO.AudioPlayerCoroutine))
+        else
+            AUDIO.audioPrepared()
+        end
+    end
+end
+
+function AUDIO.PauseAudio()
+    AUDIO.audioSource:Pause()
+    --
+    AUDIO.audioSource.gameObject:SetActive(false)
+
+    AUDIO.needUpdateProcess = false
+
+    MEDIA.buttonPlay.gameObject:SetActive(true)
+
+    MEDIA.buttonPause.gameObject:SetActive(false)
+end
+
 --更新视频进度标识量
 VIDEO.needUpdateProcess = false
 
-function VIDEO.videoPrepared()
+--Video播放初始化
+function VIDEO.InitVideoPlayer()
+    --
+    COMMON.RegisterListener(MEDIA.buttonPlay.onClick, function()
+        --
+        MEDIA.buttonPlay.gameObject:SetActive(false)
+        MEDIA.buttonPause.gameObject:SetActive(true)
 
-    local videoMillis = VIDEO.videoPlayer.frameCount / VIDEO.videoPlayer.frameRate
-    --计算视频时长
-    VIDEO.totalTimeStamp.text = VIDEO.CalculateTime(videoMillis)
+        --VIDEO.videoPlayer.playbackSpeed = 1.0
 
-    VIDEO.progressSlider.maxValue = math.ceil(videoMillis)
+        --TODO:区分音频还是视频
+        if MEDIA.currentType == "Audio" then
+            AUDIO.PlayAudio()
+        elseif MEDIA.currentType == "Video" then
+            VIDEO.PlayVideo()
+        end
 
-    VIDEO.buttonPlay.gameObject:SetActive(false)
+    end)
 
-    VIDEO.buttonPause.gameObject:SetActive(true)
+    COMMON.RegisterListener(MEDIA.buttonPause.onClick, function()
+        --TODO:区分音频还是视频
+        if MEDIA.currentType == "Audio" then
+            AUDIO.PauseAudio()
+        elseif MEDIA.currentType == "Video" then
+            VIDEO.PauseVideo()
+        end
+    end)
+
+    --退出全屏按钮
+    COMMON.RegisterListener(VIDEO.renderFullScreenButton.onClick, function()
+        local tempTime = Time.realtimeSinceStartup
+
+        --双击退出全屏
+        if tempTime - VIDEO.PressDownStamp < 0.5 then
+            --TODO:打开追踪
+            DataSetLoader:ActiveDataSet()
+            --
+            VIDEO.renderFullScreenRawImage.gameObject:SetActive(false)
+            --
+            MEDIA.lostTarget()
+        end
+
+        VIDEO.PressDownStamp = tempTime
+    end)
+
+    VIDEO.videoPlayer.isLooping = true
 
     --
-    VIDEO.needUpdateProcess = true
+    VIDEO.videoPlayer:prepareCompleted("+", VIDEO.videoPrepared)
+
+    --
+    VIDEO.prepareProgress()
+end
+
+function VIDEO.videoPrepared()
+    --
+    MEDIA.reset()
+
+    local videoMillis = VIDEO.videoPlayer.frameCount / VIDEO.videoPlayer.frameRate
+
+    --计算视频时长
+    MEDIA.totalTimeStamp.text = MEDIA.CalculateTime(videoMillis)
+
+    MEDIA.progressSlider.maxValue = math.ceil(videoMillis)
+
+    MEDIA.buttonPlay.gameObject:SetActive(false)
+
+    MEDIA.buttonPause.gameObject:SetActive(true)
 
     --设置VideoPlayer播放速度
     VIDEO.videoPlayer.playbackSpeed = 1.0
 
     --
-    VIDEO.progressSlider.value = 0.0
+    MEDIA.progressSlider.value = 0.0
 
     --重置VideoPlayer进度条
     VIDEO.videoPlayer.time = VIDEO.videoProgress[currentMarkerGameObject.name]
 
     --播放视频的模式下显示UI
-    VIDEO.UI:SetActive(true)
+    MEDIA.UI:SetActive(true)
 
     --开始播放视频
     VIDEO.videoPlayer:Play()
@@ -1566,40 +1889,59 @@ end
 VIDEO.videoProgress = {}
 
 function VIDEO.prepareProgress()
-
-    for i = 0, VUFORIA.dynamicTargetsArray.Length - 1 do
-        --
-        VIDEO.videoProgress[VUFORIA.dynamicTargetsArray[i].name] = 0.0
+    if sceneType ~= "OnlyVR" then
+        for i = 0, VUFORIA.dynamicTargetsArray.Length - 1 do
+            --
+            VIDEO.videoProgress[VUFORIA.dynamicTargetsArray[i].name] = 0.0
+        end
     end
-
 end
 
+function MEDIA.lostTarget()
+
+    if MEDIA.UI.activeSelf then
+
+        local DynamicTargetName = currentMarkerGameObject.name
+
+        --隐藏视频播放UI
+        MEDIA.UI:SetActive(false)
+
+        if MEDIA.currentType == "Audio" then
+            --暂停音频播放
+            AUDIO.PauseAudio()
+        elseif MEDIA.currentType == "Video" then
+            --暂停视频播放
+            VIDEO.PauseVideo()
+
+            --暂存播放进度
+            VIDEO.videoProgress[DynamicTargetName] = VIDEO.videoPlayer.time
+
+            --清除RawImageTexture
+            if VIDEO.renderRawImage.texture ~= nil then
+                VIDEO.renderRawImage.texture = nil
+            end
+
+            print("Temp progress saved [" .. DynamicTargetName .. "]=>" .. VIDEO.videoProgress[DynamicTargetName])
+        end
+    end
+end
+
+VIDEO.PressDownStamp = 0.0
+
 --播放视频功能
-function PROCEDURE.PlayVideo()
+function VIDEO.PlayVideo()
 
     if currentMarkerGameObject ~= nil then
-        --获取到识别到的ImageSize
-        local size = currentMarkerGameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget:GetSize()
+        --[[
+                --判断VideoPlayer模式
+                if VIDEO.videoPlayer.renderMode == CS.UnityEngine.Video.VideoRenderMode.MaterialOverride then
+                    VIDEO.videoPlayer.targetMaterialRenderer = currentMarkerGameObject.transform:Find("MediaQuad"):GetComponent("MeshRenderer")
+                elseif VIDEO.videoPlayer.renderMode == CS.UnityEngine.Video.VideoRenderMode.RenderTexture then
+                    --
+                    VIDEO.renderRawImage = currentMarkerGameObject.transform:Find("MediaQuad/3DCanvas/VideoTip"):GetComponent("RawImage")
+                end]]
 
-        --根据识别图大小设置视频窗口大小
-        VIDEO.videoQuad.gameObject.transform.localScale = size
-
-        --在识别图下生成VideoQuad
-        if currentMarkerGameObject.transform:Find("VideoQuad") == nil then
-
-            local videoQuad = GameObject.Instantiate(VIDEO.videoQuad, currentMarkerGameObject.transform)
-
-            videoQuad.name = "VideoQuad"
-
-            videoQuad.gameObject:SetActive(true)
-
-        else
-            LogInfo(currentMarkerGameObject.name .. " has loaded its video!")
-            --TODO:需要续播
-
-        end
-
-        VIDEO.videoPlayer.targetMaterialRenderer = currentMarkerGameObject.transform:Find("VideoQuad"):GetComponent("MeshRenderer")
+        VIDEO.renderRawImage = currentMarkerGameObject.transform:Find("MediaQuad/3DCanvas/VideoTip"):GetComponent("RawImage")
 
         --设置播放路径
         VIDEO.videoPlayer.url = wwwAssetPath .. sceneName .. "/video.mp4"
@@ -1611,16 +1953,28 @@ function PROCEDURE.PlayVideo()
     end
 end
 
---
-function PROCEDURE.PauseVideo()
-    --
-    VIDEO.videoPlayer.playbackSpeed = 0.0
+function VIDEO.PauseVideo()
+    --VIDEO.videoPlayer.playbackSpeed = 0.0
+
+    VIDEO.videoPlayer:Pause()
 
     VIDEO.needUpdateProcess = false
 
-    VIDEO.buttonPlay.gameObject:SetActive(true)
-    VIDEO.buttonPause.gameObject:SetActive(false)
+    MEDIA.buttonPlay.gameObject:SetActive(true)
+
+    MEDIA.buttonPause.gameObject:SetActive(false)
 end
+
+function USERINTERFACE.InitRectTransform(rectTransform)
+    rectTransform.anchorMin = Vector2.zero
+
+    rectTransform.anchorMax = Vector2.one
+
+    rectTransform.localScale = Vector3.one
+
+    rectTransform.anchoredPosition3D = Vector3.zero
+end
+
 
 --更新子应用的书页被读取进度
 function PROCESS.UpdateUseProgress()
@@ -1999,6 +2353,9 @@ function VUFORIA.FindDynamicTarget()
         for i = 0, (arr_DynamicTargets.Length - 1) do
             --找到识别图
             if (string.find(arr_DynamicTargets[i].gameObject.name, "DynamicTarget") ~= nil) then
+                --
+                arr_DynamicTargets[i].gameObject.transform.localScale = Vector3.one
+
                 --给识别图添加监听脚本
                 arr_DynamicTargets[i].gameObject:AddComponent(typeof(CS.CustomTrackableEventHandler))
                 --
@@ -2060,7 +2417,7 @@ function CALLBACK.TrackingFound(DynamicTarget)
                 needLoad = false
 
                 --判断是否已经播放相应的视频
-            elseif DynamicTarget.transform:Find("VideoQuad") ~= nil then
+            elseif DynamicTarget.transform:Find("mediaQuad") ~= nil then
 
                 LogInfo("Current tracker has loaded video!")
 
@@ -2076,18 +2433,18 @@ function CALLBACK.TrackingFound(DynamicTarget)
     --
     for i = 1, #table_MarkerToModel do
         --遍历列表寻找识别物匹配的模型
-        if string.gsub(DynamicTarget.name, "DynamicTarget", "") == "-" .. table_MarkerToModel[i][1] then
+        if string.gsub(DynamicTarget.name, "DynamicTarget", "") == "-" .. table_MarkerToModel[i][6] then
             --解析Marker信息
             --sceneName
-            sceneName = ((table_MarkerToModel[i][2] == nil) and "") or table_MarkerToModel[i][2]
+            sceneName = ((table_MarkerToModel[i][3] == nil) and "") or table_MarkerToModel[i][3]
             --pageName
-            pageName = ((table_MarkerToModel[i][3] == nil) and "") or table_MarkerToModel[i][3]
+            pageName = ((table_MarkerToModel[i][4] == nil) and "") or table_MarkerToModel[i][4]
             --设置模型名称name
-            modelName = ((table_MarkerToModel[i][4] == nil) and "") or table_MarkerToModel[i][4]
+            modelName = ((table_MarkerToModel[i][5] == nil) and "") or table_MarkerToModel[i][5]
             --
-            haveMulModel = ((table_MarkerToModel[i][5] == nil) and "") or table_MarkerToModel[i][5]
+            haveMulModel = ((table_MarkerToModel[i][8] == nil) and "") or table_MarkerToModel[i][8]
             --
-            sectionNum = ((table_MarkerToModel[i][6] == nil) and "") or ((string.len(tostring(table_MarkerToModel[i][6])) > 1 and "") or table_MarkerToModel[i][6])
+            sectionNum = ((table_MarkerToModel[i][7] == nil) and "") or ((string.len(tostring(table_MarkerToModel[i][7])) > 1 and "") or table_MarkerToModel[i][7])
 
             --如果显示模式为UIWidget
             if pageListType == pageListType_UIWidget then
@@ -2132,11 +2489,10 @@ function CALLBACK.TrackingFound(DynamicTarget)
                 --设置相应的模型名称、
                 MainSubtitleText.text = (modelName ~= nil and modelName) or ""
 
-                if doType ~= nil and doType == "video" then
-
-                    PROCEDURE.PlayVideo()
+                if doType ~= nil and doType == "media" then
+                    --TODO:hmmmmmmmmmmmmmmmmmmmmm
+                    VIDEO.PlayVideo()
                 end
-
             end
 
             --找到便退出循环
@@ -2157,25 +2513,19 @@ function CALLBACK.TrackingLost(DynamicTarget)
 
     LogInfo(DynamicTargetName .. " Lost!")
 
-    --
-    if DynamicTarget.gameObject.transform:Find("VideoQuad") ~= nil then
-
-        if VIDEO.UI.activeSelf then
-            --隐藏视频播放UI
-            VIDEO.UI:SetActive(false)
-
-            --暂停视频播放
-            PROCEDURE.PauseVideo()
-
-            --暂存播放进度
-            VIDEO.videoProgress[DynamicTargetName] = VIDEO.videoPlayer.time
-
-            print("Temp progress saved [" .. DynamicTargetName .. "]=>" .. VIDEO.videoProgress[DynamicTargetName])
-        end
+    --判断是否当前是全屏播放状态
+    if VIDEO.renderFullScreenRawImage.gameObject.activeSelf then
+        return
     end
 
     --
-    if Loading.active then
+    if DynamicTarget.gameObject.transform:Find("MediaQuad") ~= nil then
+        --
+        MEDIA.lostTarget()
+    end
+
+    --
+    if Loading.activeSelf then
         Loading:SetActive(false)
     end
 
@@ -2343,6 +2693,15 @@ function PROCESS.ShowOperateUI()
     TitlePanel:SetActive(true)
     --隐藏遮罩
     PreLoad:SetActive(false)
+    --
+    MEDIA.InitMediaTool()
+end
+
+function MEDIA.InitMediaTool()
+    --
+    MEDIA.initNavigationBar()
+    --初始化AudioSource
+    AUDIO.InitAudioPlayer()
     --初始化VideoPlayer
     VIDEO.InitVideoPlayer()
 end
@@ -2851,10 +3210,23 @@ function update()
 
     --播放视频
     if VIDEO.needUpdateProcess then
+        --
+        if VIDEO.renderRawImage ~= nil then
+            VIDEO.renderRawImage.texture = VIDEO.videoPlayer.texture
+        end
+
         --同步当前视频时间戳
-        VIDEO.currentTimeStamp.text = VIDEO.CalculateTime(VIDEO.videoPlayer.time)
+        MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(VIDEO.videoPlayer.time)
         --更新进度条
-        VIDEO.progressSlider.value = VIDEO.videoPlayer.time
+        MEDIA.progressSlider.value = VIDEO.videoPlayer.time
+    end
+
+    --播放音频
+    if AUDIO.needUpdateProcess then
+        --同步当前音频时间戳
+        MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(AUDIO.audioSource.time)
+        --更新进度条
+        MEDIA.progressSlider.value = AUDIO.audioSource.time
     end
 end
 
@@ -2943,7 +3315,9 @@ function ondestroy()
     DEBUG = nil
     CALLBACK = nil
     PROCEDURE = nil
-    FUNCTION = nil
+    AUDIO = nil
+    VIDEO = nil
+    MEDIA = nil
     WEBVIEW = nil
     VUFORIA = nil
     PROCESS = nil
