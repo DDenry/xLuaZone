@@ -1495,20 +1495,20 @@ function MEDIA.Prepare()
 
             USERINTERFACE.InitRectTransform(canvasRect)
 
-            canvasRect.sizeDelta = Vector2(size.x, size.y)
+            canvasRect.sizeDelta = Vector2.one
 
             local graphicRaycaster = canvas.transform.gameObject:AddComponent(typeof(CS.UnityEngine.UI.GraphicRaycaster))
 
             graphicRaycaster.ignoreReversedGraphics = false
 
             --AudioTip
-            MEDIA.NailAudioTip(canvas, Vector2(4665 / 6305.0, 5205 / 6305.0), 0.2)
+            MEDIA.NailAudioTip(canvas, Vector2(548 / 4604.0, 3993 / 4604.0), Vector2(4665 / 6305.0, 5205 / 6305.0), wwwAssetPath .. sceneName .. "/audio1.mp3")
 
             --VideoTip
             MEDIA.NailVideoTip(canvas, Vector2(1439 / 4604.0, 2452 / 6305.0), Vector2(3096 / 4604.0, 4016 / 6305.0), 0.3)
 
             --AudioTip
-            MEDIA.NailAudioTip(canvas, Vector2(850 / 6305.0, 1415 / 6305.0), 0.2)
+            MEDIA.NailAudioTip(canvas, Vector2(548 / 4604.0, 3993 / 4604.0), Vector2(850 / 6305.0, 1415 / 6305.0), wwwAssetPath .. sceneName .. "/audio2.mp3")
 
             mediaQuad.gameObject:SetActive(true)
 
@@ -1519,7 +1519,7 @@ function MEDIA.Prepare()
 end
 
 --钉音频
-function MEDIA.NailAudioTip(parent, anchorHeight, url)
+function MEDIA.NailAudioTip(parent, anchorMin, anchorMax, url)
 
     print("NailAudioTip >>> ")
 
@@ -1532,15 +1532,19 @@ function MEDIA.NailAudioTip(parent, anchorHeight, url)
     USERINTERFACE.InitRectTransform(audioTip)
 
     ---根据计算好的位置设置锚点
-    audioTip.anchorMin = Vector2(548 / 4604.0, anchorHeight.x)
-    audioTip.anchorMax = Vector2(3993 / 4604.0, anchorHeight.y)
+    audioTip.anchorMin = Vector2(anchorMin.x, anchorMax.x)
+    audioTip.anchorMax = Vector2(anchorMin.y, anchorMax.y)
 
     ---提示框占比
     audioTip.sizeDelta = Vector2(0, 0)
 
     --生成按钮
     local image = audioTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Image))
-    image.sprite = null
+    --设置默认音频标注图片
+
+    image.sprite = Resources.Load("audio", typeof(CS.UnityEngine.Sprite))
+
+    image.preserveAspect = true
     image.color = Color.white
     image.raycastTarget = true
 
@@ -1560,7 +1564,7 @@ function MEDIA.NailAudioTip(parent, anchorHeight, url)
 end
 
 --钉视频
-function MEDIA.NailVideoTip(parent, anchorMin, anchorMax, weight)
+function MEDIA.NailVideoTip(parent, anchorMin, anchorMax, url)
     print("NailVideoTip >>> ")
 
     local videoTip = GameObject("VideoTip"):AddComponent(typeof(CS.UnityEngine.RectTransform))
@@ -1580,7 +1584,7 @@ function MEDIA.NailVideoTip(parent, anchorMin, anchorMax, weight)
 
     --生成按钮
     local rawImage = videoTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.RawImage))
-    rawImage.texture = nil
+    rawImage.texture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
     rawImage.color = Color.white
     rawImage.raycastTarget = true
 
@@ -1602,10 +1606,11 @@ function MEDIA.NailVideoTip(parent, anchorMin, anchorMax, weight)
             if tempTime - VIDEO.PressDownStamp < 0.5 then
                 print("Double click!")
                 --
-                VIDEO.renderRawImage.texture = nil
+                VIDEO.renderRawImage.texture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
 
                 --将画面渲染设置为RenderImage
                 VIDEO.renderRawImage = VIDEO.renderFullScreenRawImage
+
                 --打开全屏视频
                 VIDEO.renderFullScreenRawImage.gameObject:SetActive(true)
 
@@ -1693,9 +1698,13 @@ function MEDIA.reset()
     end
 
     if VIDEO.videoPlayer.url ~= nil then
+
         VIDEO.PauseVideo()
+
         --
-        VIDEO.renderRawImage.texture = nil
+        if VIDEO.renderRawImage ~= nil then
+            VIDEO.renderRawImage.texture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
+        end
     end
 end
 
@@ -1707,7 +1716,7 @@ function AUDIO.InitAudioPlayer()
     --
     AUDIO.audioSource.playOnAwake = false
     --设置loop=false
-    AUDIO.audioSource.loop = false
+    AUDIO.audioSource.loop = true
     --
     AUDIO.audioSource.mute = false
 end
@@ -1734,56 +1743,72 @@ function AUDIO.audioPrepared()
     MEDIA.UI:SetActive(true)
 
     AUDIO.audioSource:Play()
-
     --
     AUDIO.needUpdateProcess = true
 end
 
---
-AUDIO.AudioPlayerCoroutine = coroutine.create(function()
-    --设置音频路径
-    local www = CS.UnityEngine.WWW(wwwAssetPath .. sceneName .. "/audio1.mp3")
+--播放音频
+function AUDIO.PlayAudio(...)
 
-    yield_return(www)
+    local url
 
-    if www.error == nil then
+    if select("#", ...) > 0 then
 
-        AUDIO.audioSource.clip = www:GetAudioClip()
+        url = select(1, ...)
 
-        local seconds = www:GetAudioClip().length
+        AUDIO.audioSource.time = 0.0
+    else
 
-        print("Current audio length is " .. seconds .. "s")
-        --
+        AUDIO.audioSource.time = AUDIO.currentProgress
+
         AUDIO.audioPrepared()
 
-        --音频播放结束后重置AudioSource
-        --yield_return(CS.UnityEngine.WaitForSeconds(seconds))
-
-        --停止背景音
-        --AUDIO.audioSource.gameObject:SetActive(false)
-    else
-        print("[WWWAudioError]:" .. www.error)
+        return
     end
-end)
-
---播放音频
-function AUDIO.PlayAudio()
 
     --判断是否当前正在播放
     if AUDIO.audioSource.isPlaying then
         --
         AUDIO.PauseAudio()
-    else
-        --
-        if AUDIO.audioSource.clip == nil then
-            assert(coroutine.resume(AUDIO.AudioPlayerCoroutine))
-        else
-            AUDIO.audioPrepared()
-        end
     end
+    --
+    local AUDIO_COROUTINE = coroutine.create(function()
+
+        print("URL:" .. url)
+
+        --设置音频路径
+        local www = CS.UnityEngine.WWW(url)
+
+        yield_return(www)
+
+        if www.error == nil then
+
+            AUDIO.audioSource.clip = www:GetAudioClip()
+
+            local seconds = www:GetAudioClip().length
+
+            print("Current audio length is " .. seconds .. "s")
+            --
+            AUDIO.audioPrepared()
+
+            --音频播放结束后重置AudioSource
+            --yield_return(CS.UnityEngine.WaitForSeconds(seconds))
+
+            --停止背景音
+            --AUDIO.audioSource.gameObject:SetActive(false)
+        else
+            print("[WWWAudioError]:" .. www.error)
+        end
+    end)
+    assert(coroutine.resume(AUDIO_COROUTINE))
 end
 
+AUDIO.currentProgress = 0.0
+
 function AUDIO.PauseAudio()
+
+    AUDIO.currentProgress = AUDIO.audioSource.time
+
     AUDIO.audioSource:Pause()
     --
     AUDIO.audioSource.gameObject:SetActive(false)
@@ -1918,7 +1943,7 @@ function MEDIA.lostTarget()
 
             --清除RawImageTexture
             if VIDEO.renderRawImage.texture ~= nil then
-                VIDEO.renderRawImage.texture = nil
+                VIDEO.renderRawImage.texture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
             end
 
             print("Temp progress saved [" .. DynamicTargetName .. "]=>" .. VIDEO.videoProgress[DynamicTargetName])
