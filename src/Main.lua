@@ -276,6 +276,7 @@ local Screen = CS.UnityEngine.Screen
 local GameObject = CS.UnityEngine.GameObject
 local Debug = CS.UnityEngine.Debug
 local Color = CS.UnityEngine.Color
+local Image = CS.UnityEngine.UI.Image
 local Transform = CS.UnityEngine.Transform
 local Quaternion = CS.UnityEngine.Quaternion
 local Vector2 = CS.UnityEngine.Vector2
@@ -1902,9 +1903,9 @@ function CALLBACK.TrackingFound(DynamicTarget)
                 needLoad = false
 
                 --判断是否已经播放相应的视频
-            elseif DynamicTarget.transform:Find("mediaQuad") ~= nil then
+            elseif DynamicTarget.transform:Find("MediaQuad") ~= nil then
 
-                LogInfo("Current tracker has loaded video!")
+                LogInfo("Current tracker has loaded media!")
 
                 --无需再次加载
                 needLoad = false
@@ -1971,12 +1972,12 @@ function CALLBACK.TrackingFound(DynamicTarget)
                 --加载模型
                 CALLBACK.PageListSelected(url)
             else
-                --设置相应的模型名称、
+                --设置相应的模型名称
                 MainSubtitleText.text = (modelName ~= nil and modelName) or ""
 
                 if doType ~= nil and doType == "media" then
-                    --TODO:hmmmmmmmmmmmmmmmmmmmmm
-                    VIDEO.PlayVideo()
+                    --Resume Media
+                    MEDIA.Resume()
                 end
             end
 
@@ -1998,26 +1999,26 @@ function CALLBACK.TrackingLost(DynamicTarget)
 
     LogInfo(DynamicTargetName .. " Lost!")
 
-    --判断是否当前是全屏播放状态
-    if VIDEO.renderFullScreenRawImage.transform.parent.gameObject.activeSelf then
-        return
-    end
-
-    --
-    if DynamicTarget.gameObject.transform:Find("MediaQuad") ~= nil then
-        --
-        MEDIA.LostTarget()
-    end
-
-    --
-    if Loading.activeSelf then
-        Loading:SetActive(false)
-    end
-
-    MainSubtitleText.text = ""
-
     --丢失当前marker
-    currentMarkerGameObject = nil
+    if currentMarkerGameObject ~= nil and currentMarkerGameObject.name == DynamicTargetName then
+        --判断是否当前是全屏播放状态
+        if not VIDEO.renderFullScreenRawImage.transform.gameObject.activeInHierarchy then
+            --
+            if DynamicTarget.gameObject.transform:Find("MediaQuad") ~= nil then
+                --
+                MEDIA.LostTarget()
+            end
+
+            --
+            if Loading.activeSelf then
+                Loading:SetActive(false)
+            end
+
+            MainSubtitleText.text = ""
+
+            currentMarkerGameObject = nil
+        end
+    end
 end
 
 --模型浏览模式
@@ -2667,6 +2668,71 @@ end
 
 ---Media-Functions
 
+local Media = {
+    --_id
+    _id = -1,
+    --资源名称
+    name = "",
+    --资源类型
+    type = "",
+    --
+    anchorMin = Vector2.zero,
+    anchorMax = Vector2.one,
+    --url
+    url = "",
+    --progress
+    progress = tonumber(0.0),
+    --loop
+    isLoop = false,
+    --
+    tip = nil
+}
+
+function Media:new(name, type, anchorMin, anchorMax, url, progress, isLoop, tip)
+    --
+    MEDIA._id = MEDIA._id + 1
+
+    self._id = MEDIA._id
+    self.name = name
+    self.type = type
+    self.anchorMin = anchorMin
+    self.anchorMax = anchorMax
+    self.url = url
+    self.progress = progress
+    self.isLoop = isLoop
+    self.tip = tip
+
+    local o = {
+        _id = self._id,
+        name = self.name,
+        type = self.type,
+        anchorMin = self.anchorMin,
+        anchorMax = self.anchorMax,
+        url = self.url,
+        progress = self.progress,
+        isLoop = self.isLoop
+    }
+
+    --元表保护
+    self.__metatable = "Sorry, u cannot do this!"
+
+    --元表
+    setmetatable(o, self)
+    self.__index = self
+
+    return o
+end
+
+--标识当前多媒体资源
+--MEDIA.currentType = "None"
+MEDIA.currentMedia = nil
+
+MEDIA.mediaArray = {}
+
+MEDIA.canAutoResume = false
+
+MEDIA.currentMediaId = 1
+
 --初始化MediaTool
 function MEDIA.InitMediaTool()
     --初始化公共控件
@@ -2689,21 +2755,34 @@ function MEDIA.InitCommonComponents()
         MEDIA.buttonPause.gameObject:SetActive(true)
 
         --VIDEO.videoPlayer.playbackSpeed = 1.0
+        --[[
+                --区分音频还是视频
+                if MEDIA.currentType == "Audio" then
+                    AUDIO.PlayAudio()
+                elseif MEDIA.currentType == "Video" then
+                    VIDEO.PlayVideo()
+                end]]
 
-        --TODO:区分音频还是视频
-        if MEDIA.currentType == "Audio" then
+        --区分音频还是视频
+        if MEDIA.currentMedia.type == "AUDIO" then
             AUDIO.PlayAudio()
-        elseif MEDIA.currentType == "Video" then
+        elseif MEDIA.currentMedia.type == "VIDEO" then
             VIDEO.PlayVideo()
         end
 
     end)
     --多媒体导航栏暂停按钮事件
     COMMON.RegisterListener(MEDIA.buttonPause.onClick, function()
-        --TODO:区分音频还是视频
-        if MEDIA.currentType == "Audio" then
+        --[[        --TODO:区分音频还是视频
+                if MEDIA.currentType == "Audio" then
+                    AUDIO.PauseAudio()
+                elseif MEDIA.currentType == "Video" then
+                    VIDEO.PauseVideo()
+                end]]
+
+        if MEDIA.currentMedia.type == "AUDIO" then
             AUDIO.PauseAudio()
-        elseif MEDIA.currentType == "Video" then
+        elseif MEDIA.currentMedia.type == "VIDEO" then
             VIDEO.PauseVideo()
         end
     end)
@@ -2735,93 +2814,78 @@ function MEDIA.InitNavigationBar()
     --拖动回调
     entry.callback:AddListener(function()
         --
-        if MEDIA.currentType == "Audio" then
+        --[[        if MEDIA.currentType == "Audio" then
+                    --设置进度条value到audioSource播放time
+                    AUDIO.audioSource.time = MEDIA.progressSlider.value
+                    MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(AUDIO.audioSource.time)
+                elseif MEDIA.currentType == "Video" then
+                    --设置进度条value到videoPlayer播放time
+                    VIDEO.videoPlayer.time = MEDIA.progressSlider.value
+                    MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(VIDEO.videoPlayer.time)
+                end]]
+
+        if MEDIA.currentMedia.type == "AUDIO" then
             --设置进度条value到audioSource播放time
-            AUDIO.audioSource.time = MEDIA.progressSlider.value
-            MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(AUDIO.audioSource.time)
-        elseif MEDIA.currentType == "Video" then
+            AUDIO.audioSource.time = (MEDIA.progressSlider.value > AUDIO.audioSource.clip.length and AUDIO.audioSource.clip.length) or MEDIA.progressSlider.value
+            MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(MEDIA.progressSlider.value)
+
+        elseif MEDIA.currentMedia.type == "VIDEO" then
             --设置进度条value到videoPlayer播放time
             VIDEO.videoPlayer.time = MEDIA.progressSlider.value
-            MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(VIDEO.videoPlayer.time)
+            MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(MEDIA.progressSlider.value)
         end
+
+        --
+        MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress = MEDIA.progressSlider.value
     end)
 
     eventTrigger.triggers:Add(entry)
 end
 
---标识当前多媒体类型
-MEDIA.currentType = "None"
-
-local Media = {
-    --_id
-    _id = -1,
-    --资源名称
-    name = "",
-    --资源类型
-    type = "",
-    --
-    anchorMin = Vector2.zero,
-    anchorMax = Vector2.one,
-    --url
-    url = "",
-    --loop
-    isLoop = false
-}
-
-MEDIA._id = 0
-
-function Media:new(name, type, anchorMin, anchorMax, url, isLoop)
-    --
-    self._id = MEDIA._id + 1
-    self.name = name
-    self.type = type
-    self.anchorMin = anchorMin
-    self.anchorMax = anchorMax
-    self.url = url
-    self.isLoop = isLoop
-
-    local o = {
-        _id = self._id,
-        name = self.name,
-        type = self.type,
-        anchorMin = self.anchorMin,
-        anchorMax = self.anchorMax,
-        url = self.url,
-        isLoop = self.isLoop
-    }
-
-    --元表保护
-    self.__metatable = "Sorry, u cannot do this!"
-
-    --元表
-    setmetatable(o, self)
-    self.__index = self
-
-    return o
-end
-
-MEDIA.mediaArray = {}
-
-MEDIA.canAutoResume = false
-
 --根据数据解析当前所需Media资源
 function MEDIA.AnalysisMedia(root)
-    --TODO:默认数据接口
-    --local media = Media:new("audio1", "AUDIO", Vector2(548 / 4604.0, 3993 / 4604.0), Vector2(4665 / 6305.0, 5205 / 6305.0), "audio1.mp3", false)
-    local _media = Media:new("韩信点兵", "VIDEO", Vector2(1439 / 4604.0, 2452 / 6305.0), Vector2(3096 / 4604.0, 4016 / 6305.0), "video.mp4", false)
-    --local __media = Media:new("audio2", "AUDIO", Vector2(548 / 4604.0, 3993 / 4604.0), Vector2(850 / 6305.0, 1415 / 6305.0), "audio2.mp3", false)
 
-    --MEDIA.mediaArray[#MEDIA.mediaArray + 1] = media
-    MEDIA.mediaArray[#MEDIA.mediaArray + 1] = _media
-    --MEDIA.mediaArray[#MEDIA.mediaArray + 1] = __media
+    local mediaArray = {}
 
-    print("This marker needed " .. #MEDIA.mediaArray .. " media tips!")
+    MEDIA._id = 0
 
-    MEDIA.canAutoResume = #MEDIA.mediaArray > 1 and false or true
+    --TODO:Demo级别 根据识别名称生成相应Tip
+    if currentMarkerGameObject.name == "DynamicTarget-P114" then
+        local media = Media:new("audio1", "AUDIO", Vector2(550 / 4604.0, 4654 / 6305.0), Vector2(3975 / 4604.0, 5204 / 6305.0), "audio1.mp3", 0.0, false)
+        local _media = Media:new("韩信点兵", "VIDEO", Vector2(1438 / 4604.0, 2454 / 6305.0), Vector2(3093 / 4604.0, 4109 / 6305.0), "video.mp4", 0.0, false)
+        local __media = Media:new("audio2", "AUDIO", Vector2(550 / 4604.0, 846 / 6305.0), Vector2(3975 / 4604.0, 1419 / 6305.0), "audio2.mp3", 0.0, false)
+
+        mediaArray[#mediaArray + 1] = media
+        mediaArray[#mediaArray + 1] = _media
+        mediaArray[#mediaArray + 1] = __media
+    elseif currentMarkerGameObject.name == "DynamicTarget-P118" then
+        local media = Media:new("video", "VIDEO", Vector2(1431 / 4604.0, 1710 / 6305.0), Vector2(3097 / 4604.0, 3369 / 6305.0), "video.mp4", 0.0, false)
+
+        mediaArray[#mediaArray + 1] = media
+    elseif currentMarkerGameObject.name == "DynamicTarget-P121" then
+        local media = Media:new("audio", "AUDIO", Vector2(550 / 4604.0, 1885 / 6305.0), Vector2(3975 / 4604.0, 3150 / 6305.0), "audio.mp3", 0.0, false)
+
+        mediaArray[#mediaArray + 1] = media
+    elseif currentMarkerGameObject.name == "DynamicTarget-P127" then
+        local media = Media:new("video", "VIDEO", Vector2(1450 / 4604.0, 570 / 6305.0), Vector2(3090 / 4604.0, 2217 / 6305.0), "video.mp4", 0.0, false)
+
+        mediaArray[#mediaArray + 1] = media
+    end
+
+    print("This marker needed " .. #mediaArray .. " media tips!")
+
+    if #mediaArray > 1 then
+        MEDIA.canAutoResume = false
+    elseif #mediaArray == 1 then
+        MEDIA.canAutoResume = true
+    end
+
+    --将Media数组保存
+    MEDIA.mediaArray[currentMarkerGameObject.name] = mediaArray
 
     print("Media canAutoResume is " .. tostring(MEDIA.canAutoResume))
 
-    for i, media in pairs(MEDIA.mediaArray) do
+    for i, media in pairs(mediaArray) do
         --设置www路径头
         media.url = wwwAssetPath .. sceneName .. "/" .. media.url
 
@@ -2837,6 +2901,7 @@ function MEDIA.AnalysisMedia(root)
 
         print("Media >>>" .. media.name .. " > " .. media.url)
     end
+
 end
 
 --准备Media
@@ -2883,23 +2948,55 @@ function MEDIA.Prepare()
             --TODO:根据多媒体信息数量生成Tip
             MEDIA.AnalysisMedia(canvas)
 
-            --AudioTip
-            --MEDIA.NailAudioTip(canvas, Vector2(548 / 4604.0, 3993 / 4604.0), Vector2(4665 / 6305.0, 5205 / 6305.0), wwwAssetPath .. sceneName .. "/audio1.mp3")
-
-            --VideoTip
-            --MEDIA.NailVideoTip(canvas, Vector2(1439 / 4604.0, 2452 / 6305.0), Vector2(3096 / 4604.0, 4016 / 6305.0), wwwAssetPath .. sceneName .. "/video.mp4")
-
-            --AudioTip
-            --MEDIA.NailAudioTip(canvas, Vector2(548 / 4604.0, 3993 / 4604.0), Vector2(850 / 6305.0, 1415 / 6305.0), wwwAssetPath .. sceneName .. "/audio2.mp3")
-
             mediaQuad.gameObject:SetActive(true)
 
         else
-            LogInfo(currentMarkerGameObject.name .. " has loaded its video!")
+            LogInfo(currentMarkerGameObject.name .. " has loaded its media!")
             --
             if MEDIA.canAutoResume then
+                --
+                MEDIA.currentMedia = MEDIA.mediaArray[currentMarkerGameObject.name][1]
+
                 MEDIA.buttonPlay.onClick:Invoke()
             end
+        end
+    end
+end
+
+--
+function MEDIA.Resume()
+    print("This media group has " .. #MEDIA.mediaArray[currentMarkerGameObject.name] .. " tips")
+
+    if #MEDIA.mediaArray[currentMarkerGameObject.name] > 1 then
+
+        MEDIA.canAutoResume = false
+
+        --Resume Twinkle
+        for i, media in pairs(MEDIA.mediaArray[currentMarkerGameObject.name]) do
+            if media.type == "AUDIO" then
+                --Resume Twinkle
+                AUDIO.TwinkleTip(media)
+            end
+        end
+
+    elseif #MEDIA.mediaArray[currentMarkerGameObject.name] == 1 then
+
+        MEDIA.canAutoResume = true
+
+    end
+
+    if MEDIA.canAutoResume then
+
+        MEDIA.currentMediaId = 1
+
+        if MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].type == "AUDIO" then
+
+            AUDIO.PlayAudio(MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id])
+
+        elseif MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].type == "VIDEO" then
+
+            VIDEO.PlayVideo(MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id])
+
         end
     end
 end
@@ -2911,44 +3008,77 @@ function MEDIA.NailAudioTip(parent, media)
 
     local audioTip = GameObject("AudioTip"):AddComponent(typeof(CS.UnityEngine.RectTransform))
 
+    --
+    media.tip = audioTip
+
     audioTip.transform:SetParent(parent.transform)
 
-    audioTip.transform.localRotation = Quaternion.Euler(Vector3.zero)
+    --audioTip.transform.localRotation = Quaternion.Euler(Vector3.zero)
 
     USERINTERFACE.InitRectTransform(audioTip)
 
-    ---根据计算好的位置设置锚点
-    audioTip.anchorMin = Vector2(media.anchorMin.x, media.anchorMax.x)
-    audioTip.anchorMax = Vector2(media.anchorMin.y, media.anchorMax.y)
+    --根据计算好的位置设置锚点
+    audioTip.anchorMin = Vector2(media.anchorMin.x, media.anchorMin.y)
+    audioTip.anchorMax = Vector2(media.anchorMax.x, media.anchorMax.y)
 
-    ---提示框占比
-    audioTip.sizeDelta = Vector2(0, 0)
+    --提示框占比
+    --audioTip.sizeDelta = Vector2(0, 0)
 
-    --生成按钮
+    --生成音频边界Image
     local image = audioTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Image))
+    --设置音频边框
+    image.sprite = Resources.Load("Media/border", typeof(CS.UnityEngine.Sprite))
+    --设置Image Type
+    --image.type = Image.Type.Sliced
+    --image.fillCenter = true
+    image.type = Image.Type.Simple
 
-    --设置默认音频标注图片
-    image.sprite = Resources.Load("audio", typeof(CS.UnityEngine.Sprite))
-
-    image.preserveAspect = true
-    image.color = Color.white
+    --设置边框颜色为主题颜色
+    image.color = themeColor
     image.raycastTarget = true
 
+    local twinkleImage = GameObject("TwinkleCover"):AddComponent(typeof(CS.UnityEngine.RectTransform))
+
+    twinkleImage.transform:SetParent(image.transform)
+
+    USERINTERFACE.InitRectTransform(twinkleImage)
+
+    --
+    local cover = twinkleImage.gameObject:AddComponent(typeof(Image))
+
+    cover.sprite = Resources.Load("Media/audio-light", typeof(CS.UnityEngine.Sprite))
+
+    cover.type = Image.Type.Simple
+
+    cover.preserveAspect = true
+
+    --图片闪烁提示
+    AUDIO.TwinkleTip(media)
+
+    --添加按钮
     local button = audioTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Button))
 
     button.transition = CS.UnityEngine.UI.Selectable.Transition.None
 
     button.onClick:AddListener(function()
+
         print("Audio button click~")
 
-        MEDIA.currentType = "Audio"
-
         --
-        if AUDIO.audioSource.isPlaying then
+        if AUDIO.audioSource.isPlaying and MEDIA.currentMedia == media then
             print("Current audio is playing now!")
         else
+
+            MEDIA.Dispatch()
+
+            --MEDIA.currentType = "Audio"
+
+            print("This media's id is " .. media._id)
+
+            MEDIA.currentMediaId = media._id
+
             --播放音频
-            AUDIO.PlayAudio(media.url)
+            AUDIO.PlayAudio(media)
         end
     end)
 
@@ -2963,17 +3093,20 @@ function MEDIA.NailVideoTip(parent, media)
 
     local videoTip = GameObject("VideoTip"):AddComponent(typeof(CS.UnityEngine.RectTransform))
 
+    --
+    media.tip = videoTip
+
     videoTip.transform:SetParent(parent.transform)
 
     videoTip.transform.localRotation = Quaternion.Euler(Vector3.zero)
 
     USERINTERFACE.InitRectTransform(videoTip)
 
-    ---根据计算好的位置设置锚点
+    --根据计算好的位置设置锚点
     videoTip.anchorMin = media.anchorMin
     videoTip.anchorMax = media.anchorMax
 
-    ---提示框占比
+    --提示框占比
     videoTip.sizeDelta = Vector2.zero
 
     --生成按钮
@@ -2991,25 +3124,22 @@ function MEDIA.NailVideoTip(parent, media)
     rawImage.color = Color.white
     rawImage.raycastTarget = true
 
+    --local aspectRatioFitter = videoRenderedRawImage.gameObject:AddComponent(typeof(CS.UnityEngine.UI.AspectRatioFitter))
+    --aspectRatioFitter.aspectMode = CS.UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent
+
     local button = videoTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Button))
 
     button.transition = CS.UnityEngine.UI.Selectable.Transition.None
 
     button.onClick:AddListener(function()
-
-        --
-        MEDIA.currentType = "Video"
-
         --记录按下时间
         local tempTime = Time.realtimeSinceStartup
 
-        if VIDEO.videoPlayer.isPlaying then
+        if VIDEO.videoPlayer.isPlaying and MEDIA.currentMedia == media then
             print("Current video is playing~")
 
             if tempTime - VIDEO.PressDownStamp < 0.5 then
                 print("Double click!")
-                --
-                VIDEO.renderRawImage.texture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
 
                 --将画面渲染设置为RenderImage
                 VIDEO.renderRawImage = VIDEO.renderFullScreenRawImage
@@ -3024,8 +3154,12 @@ function MEDIA.NailVideoTip(parent, media)
 
             VIDEO.PressDownStamp = tempTime
         else
+            MEDIA.Dispatch()
+
+            MEDIA.currentMediaId = media._id
+
             --播放视频
-            VIDEO.PlayVideo(media.url)
+            VIDEO.PlayVideo(media)
         end
     end)
 
@@ -3075,6 +3209,10 @@ end
 
 --重置多媒体功能
 function MEDIA.Reset()
+    --初始化
+    MEDIA.progressSlider.value = 0
+
+    MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(0)
 
     if AUDIO.audioSource.clip ~= nil then
         AUDIO.Reset()
@@ -3084,19 +3222,19 @@ function MEDIA.Reset()
         VIDEO.Reset()
     end
 
-    --初始化
-    MEDIA.progressSlider.value = 0
 
-    MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(0)
 end
 
 function MEDIA.Dispatch()
+
     if AUDIO.audioSource.isPlaying then
         AUDIO.PauseAudio()
     end
+
     if VIDEO.videoPlayer.isPlaying then
         VIDEO.PauseVideo()
     end
+
 end
 
 --更新音频进度标识量
@@ -3113,8 +3251,6 @@ function AUDIO.InitAudioPlayer()
 end
 
 function AUDIO.AudioPrepared()
-
-    MEDIA.Dispatch()
     --
     AUDIO.audioSource.gameObject:SetActive(true)
 
@@ -3127,8 +3263,10 @@ function AUDIO.AudioPrepared()
 
     MEDIA.buttonPause.gameObject:SetActive(true)
 
-    --
-    AUDIO.audioSource.time = AUDIO.currentProgress
+    --AUDIO.audioSource.time = AUDIO.currentProgress
+    AUDIO.audioSource.time = MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress
+
+    print("[MEDIA]" .. MEDIA.currentMedia.type .. "=>" .. MEDIA.currentMedia.name .. ":MEDIA.currentMediaId=" .. MEDIA.currentMedia._id .. "'s progress is " .. MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress)
 
     --播放模式下显示UI
     MEDIA.UI:SetActive(true)
@@ -3136,73 +3274,155 @@ function AUDIO.AudioPrepared()
     AUDIO.audioSource:Play()
     --
     AUDIO.needUpdateProcess = true
+
+    --播放动图
+    AUDIO.AnimateAct(MEDIA.currentMedia)
+
+end
+
+AUDIO.lightSignal = Resources.Load("Media/audio-light", typeof(CS.UnityEngine.Sprite))
+AUDIO.darkSignal = Resources.Load("Media/audio-dark", typeof(CS.UnityEngine.Sprite))
+
+function AUDIO.TwinkleTip(media)
+
+    local twinkleCoroutine = coroutine.create(function()
+
+        local image = media.tip.transform:Find("TwinkleCover"):GetComponent("Image")
+
+        while image.sprite ~= nil and currentMarkerGameObject ~= nil do
+
+            if AUDIO.audioSource.isPlaying then
+
+                if MEDIA.currentMedia == media then
+
+                    coroutine.yield()
+
+                    break
+                end
+            end
+
+            image.sprite = (image.sprite == AUDIO.darkSignal and AUDIO.lightSignal) or AUDIO.darkSignal
+
+            yield_return(CS.UnityEngine.WaitForSeconds(0.5))
+        end
+
+    end)
+
+    assert(coroutine.resume(twinkleCoroutine))
+end
+
+AUDIO.animateActArray = {
+    Resources.Load("Media/audio-progress/1", typeof(CS.UnityEngine.Sprite)),
+    Resources.Load("Media/audio-progress/2", typeof(CS.UnityEngine.Sprite)),
+    Resources.Load("Media/audio-progress/3", typeof(CS.UnityEngine.Sprite)),
+    Resources.Load("Media/audio-progress/4", typeof(CS.UnityEngine.Sprite)),
+    Resources.Load("Media/audio-progress/5", typeof(CS.UnityEngine.Sprite)),
+    Resources.Load("Media/audio-progress/6", typeof(CS.UnityEngine.Sprite)),
+    Resources.Load("Media/audio-progress/7", typeof(CS.UnityEngine.Sprite))
+}
+
+function AUDIO.AnimateAct(media)
+
+    local animateActCoroutine = coroutine.create(function()
+
+        local image = media.tip.transform:Find("TwinkleCover"):GetComponent("Image")
+
+        local index = 1
+
+        while image.sprite ~= nil and currentMarkerGameObject ~= nil do
+
+            if AUDIO.audioSource.isPlaying then
+
+                if MEDIA.currentMedia == media then
+                    index = index + 1
+                else
+                    coroutine.yield()
+
+                    --TODO:Reset此Media
+                    print("TODO >>>>>> Need do something~")
+
+                    break
+                end
+            else
+                if AUDIO.audioSource.time == 0.0 then
+
+                    coroutine.yield()
+
+                    break
+                end
+            end
+
+            if index > #AUDIO.animateActArray then
+                index = 1
+            end
+
+            image.sprite = AUDIO.animateActArray[index]
+
+            yield_return(CS.UnityEngine.WaitForSeconds(0.1))
+
+        end
+    end)
+
+    assert(coroutine.resume(animateActCoroutine))
 end
 
 --播放音频
 function AUDIO.PlayAudio(...)
 
-    local url
+    local media
 
     if select("#", ...) > 0 then
 
-        url = select(1, ...)
+        media = select(1, ...)
 
-        AUDIO.audioSource.time = 0.0
-    else
-
-        AUDIO.audioSource.time = AUDIO.currentProgress
-
-        AUDIO.AudioPrepared()
-
-        return
-    end
-
-    --判断是否当前正在播放
-    if AUDIO.audioSource.isPlaying then
         --
-        AUDIO.PauseAudio()
+        local AUDIO_COROUTINE = coroutine.create(function()
+
+            print("URL:" .. media.url)
+
+            --设置音频路径
+            local www = CS.UnityEngine.WWW(media.url)
+
+            yield_return(www)
+
+            if www.error == nil then
+
+                AUDIO.audioSource.clip = www:GetAudioClip()
+
+                --
+                MEDIA.currentMedia = media
+
+                --
+                AUDIO.AudioPrepared()
+
+                --音频播放结束后重置AudioSource
+                --yield_return(CS.UnityEngine.WaitForSeconds(seconds))
+
+                --停止背景音
+                --AUDIO.audioSource.gameObject:SetActive(false)
+            else
+                print("[WWWAudioError]:" .. www.error)
+            end
+        end)
+
+        assert(coroutine.resume(AUDIO_COROUTINE))
+    else
+        AUDIO.AudioPrepared()
     end
-
-    --
-    local AUDIO_COROUTINE = coroutine.create(function()
-
-        print("URL:" .. url)
-
-        --设置音频路径
-        local www = CS.UnityEngine.WWW(url)
-
-        yield_return(www)
-
-        if www.error == nil then
-
-            AUDIO.audioSource.clip = www:GetAudioClip()
-
-            local seconds = www:GetAudioClip().length
-
-            print("Current audio length is " .. seconds .. "s")
-            --
-            AUDIO.AudioPrepared()
-
-            --音频播放结束后重置AudioSource
-            --yield_return(CS.UnityEngine.WaitForSeconds(seconds))
-
-            --停止背景音
-            --AUDIO.audioSource.gameObject:SetActive(false)
-        else
-            print("[WWWAudioError]:" .. www.error)
-        end
-    end)
-
-    assert(coroutine.resume(AUDIO_COROUTINE))
 end
 
 AUDIO.currentProgress = 0.0
 
 function AUDIO.PauseAudio()
 
-    AUDIO.currentProgress = AUDIO.audioSource.time
-
     AUDIO.audioSource:Pause()
+
+    --AUDIO.currentProgress = AUDIO.audioSource.time
+    MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress = MEDIA.progressSlider.value
+
+    local media = MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id]
+
+    print("Save media " .. media.name .. " >>> " .. MEDIA.currentMedia._id .. "'s progress is " .. media.progress)
 
     --
     AUDIO.audioSource.gameObject:SetActive(false)
@@ -3215,13 +3435,24 @@ function AUDIO.PauseAudio()
 end
 
 function AUDIO.Reset()
+
+    --当前进度归零
+    AUDIO.audioSource.time = tonumber(0.0)
+
+    print("BeforePause:" .. MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress)
+
     --
     AUDIO.PauseAudio()
 
-    --当前进度归零
-    AUDIO.audioSource.time = 0.0
+    if MEDIA.currentMedia.type == "AUDIO" then
 
-    AUDIO.currentProgress = 0.0
+        local media = MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id]
+
+        print("RESET:" .. MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress)
+
+        --
+        AUDIO.TwinkleTip(media)
+    end
 end
 
 --更新视频进度标识量
@@ -3235,14 +3466,9 @@ function VIDEO.InitVideoPlayer()
 
     --添加Video prepared事件回调
     VIDEO.videoPlayer:prepareCompleted("+", VIDEO.VideoPrepared)
-
-    --
-    VIDEO.InitProgress()
 end
 
 function VIDEO.VideoPrepared()
-
-    MEDIA.Dispatch()
     --
     local videoMillis = VIDEO.videoPlayer.frameCount / VIDEO.videoPlayer.frameRate
 
@@ -3259,7 +3485,11 @@ function VIDEO.VideoPrepared()
     --VIDEO.videoPlayer.playbackSpeed = 1.0
 
     --重置VideoPlayer进度条
-    VIDEO.videoPlayer.time = VIDEO.videoProgress[currentMarkerGameObject.name]
+    --VIDEO.videoPlayer.time = VIDEO.videoProgress[currentMarkerGameObject.name]
+
+    VIDEO.videoPlayer.time = MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress
+
+    print("[MEDIA]" .. MEDIA.currentMedia.type .. "=>" .. MEDIA.currentMedia.name .. ":MEDIA.currentMediaId=" .. MEDIA.currentMedia._id .. "'s progress is " .. VIDEO.videoPlayer.time)
 
     --播放视频的模式下显示UI
     MEDIA.UI:SetActive(true)
@@ -3271,73 +3501,73 @@ function VIDEO.VideoPrepared()
     VIDEO.needUpdateProcess = true
 end
 
-VIDEO.videoProgress = {}
-
---初始化进度
-function VIDEO.InitProgress()
-    if sceneType ~= "OnlyVR" then
-        for i = 0, VUFORIA.dynamicTargetsArray.Length - 1 do
-            --
-            VIDEO.videoProgress[VUFORIA.dynamicTargetsArray[i].name] = 0.0
-        end
-    end
-end
-
 function MEDIA.LostTarget()
 
-    if MEDIA.UI.activeSelf then
+    print("Media process => Have lost target!")
 
-        local DynamicTargetName = currentMarkerGameObject.name
+    if MEDIA.UI.activeSelf then
 
         --隐藏视频播放UI
         MEDIA.UI:SetActive(false)
 
-        if MEDIA.currentType == "Audio" then
+        if MEDIA.currentMedia.type == "AUDIO" then
+
             --暂停音频播放
             AUDIO.PauseAudio()
-        elseif MEDIA.currentType == "Video" then
+
+        elseif MEDIA.currentMedia.type == "VIDEO" then
+
             --暂停视频播放
             VIDEO.PauseVideo()
-
-            --清除RawImageTexture
-            if VIDEO.renderRawImage.texture ~= nil then
-                VIDEO.renderRawImage.texture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
-            end
-
-            print("Temp progress saved [" .. DynamicTargetName .. "]=>" .. VIDEO.videoProgress[DynamicTargetName])
         end
+
     end
 end
 
 VIDEO.PressDownStamp = 0.0
 
+VIDEO.defaultTexture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
+
 --播放视频功能
 function VIDEO.PlayVideo(...)
 
-    local url = ""
+    local media
 
     if select("#", ...) > 0 then
-        url = select(1, ...)
+        media = select(1, ...)
     end
+
+    local rawImage
 
     if currentMarkerGameObject ~= nil then
 
-        if VIDEO.renderRawImage == nil or not VIDEO.renderRawImage.gameObject.activeInHierarchy then
-            VIDEO.renderRawImage = currentMarkerGameObject.transform:Find("MediaQuad/3DCanvas/VideoTip"):GetComponentInChildren(typeof(CS.UnityEngine.UI.RawImage))
-        end
-
-        --设置播放路径
-        if url ~= "" then
-            VIDEO.videoPlayer.url = url
+        --判断是否是全屏状态
+        if VIDEO.renderFullScreenRawImage.transform.gameObject.activeInHierarchy then
+            rawImage = VIDEO.renderFullScreenRawImage
         else
-            VIDEO.videoPlayer.url = VIDEO.videoPlayer.url
+            rawImage = currentMarkerGameObject.transform:Find("MediaQuad/3DCanvas/VideoTip"):GetComponentInChildren(typeof(CS.UnityEngine.UI.RawImage))
         end
-
-        VIDEO.videoPlayer:Prepare()
-
     else
         LogError(sceneType + " model cannot support playing video temporarily!")
+
+        return
     end
+
+    rawImage.texture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
+
+    VIDEO.renderRawImage = rawImage
+
+    --设置播放路径
+    if media ~= nil then
+        VIDEO.videoPlayer.url = media.url
+
+        --
+        MEDIA.currentMedia = media
+    else
+        VIDEO.videoPlayer.url = VIDEO.videoPlayer.url
+    end
+
+    VIDEO.videoPlayer:Prepare()
 end
 
 function VIDEO.PauseVideo()
@@ -3345,13 +3575,16 @@ function VIDEO.PauseVideo()
 
     VIDEO.videoPlayer:Pause()
 
-    VIDEO.videoProgress[currentMarkerGameObject.name] = MEDIA.progressSlider.value
+    --VIDEO.videoProgress[currentMarkerGameObject.name] = MEDIA.progressSlider.value
+    MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress = MEDIA.progressSlider.value
 
     VIDEO.needUpdateProcess = false
 
     MEDIA.buttonPlay.gameObject:SetActive(true)
 
     MEDIA.buttonPause.gameObject:SetActive(false)
+
+    --currentMarkerGameObject.transform:Find("MediaQuad/3DCanvas/VideoTip"):GetComponentInChildren(typeof(CS.UnityEngine.UI.RawImage)).texture = VIDEO.defaultTexture
 end
 
 function VIDEO.Reset()
@@ -3361,16 +3594,19 @@ function VIDEO.Reset()
     --当前进度归零
     VIDEO.videoPlayer.time = 0.0
 
-    VIDEO.videoProgress[currentMarkerGameObject.name] = 0.0
+    if MEDIA.currentMedia.type == "VIDEO" then
+        --VIDEO.videoProgress[currentMarkerGameObject.name] = 0.0
+        MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress = 0.0
 
-    --TODO:视频第一帧图片
-    if VIDEO.renderRawImage ~= nil then
-        VIDEO.renderRawImage.texture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
+        --TODO:视频第一帧图片
+        if VIDEO.renderRawImage ~= nil then
+            VIDEO.renderRawImage.texture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
+        end
     end
-
 end
 
 function USERINTERFACE.InitRectTransform(rectTransform)
+
     rectTransform.anchorMin = Vector2.zero
 
     rectTransform.anchorMax = Vector2.one
@@ -3378,6 +3614,10 @@ function USERINTERFACE.InitRectTransform(rectTransform)
     rectTransform.localScale = Vector3.one
 
     rectTransform.anchoredPosition3D = Vector3.zero
+
+    rectTransform.sizeDelta = Vector2.zero
+
+    rectTransform.localRotation = Quaternion.Euler(Vector3.zero)
 end
 
 --string.split()
@@ -3404,6 +3644,11 @@ function update()
         --
         if VIDEO.renderRawImage ~= nil then
             VIDEO.renderRawImage.texture = VIDEO.videoPlayer.texture
+            local aspectRatioFitter = VIDEO.renderRawImage.gameObject:GetComponent("AspectRatioFitter")
+            if aspectRatioFitter ~= nil then
+                aspectRatioFitter.aspectMode = CS.UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent
+                aspectRatioFitter.aspectRatio = VIDEO.videoPlayer.texture.width / VIDEO.videoPlayer.texture.height
+            end
         end
 
         --同步当前视频时间戳
@@ -3418,12 +3663,10 @@ function update()
         MEDIA.currentTimeStamp.text = MEDIA.CalculateTime(math.ceil(AUDIO.audioSource.time))
         --更新进度条
         MEDIA.progressSlider.value = AUDIO.audioSource.time
-    else
-        return
     end
 
-    --TODO:多媒体资源播放完毕
-    if MEDIA.currentTimeStamp.text == MEDIA.totalTimeStamp.text then
+    --多媒体资源播放完毕
+    if MEDIA.currentTimeStamp.text == MEDIA.totalTimeStamp.text and not AUDIO.audioSource.isPlaying and not VIDEO.videoPlayer.isPlaying then
         print("Media has played once!")
         --
         MEDIA.Reset()
@@ -3536,7 +3779,7 @@ end
 
 ---Test
 
---Test
+local buttonTest = GameObject.Find("Root/UI/Main UI Canvas").transform:Find("TestPanel/Button").gameObject:GetComponent("Button")
 local buttonTest = GameObject.Find("Root/UI/Main UI Canvas").transform:Find("TestPanel/Button").gameObject:GetComponent("Button")
 local inputFiledTest = GameObject.Find("Root/UI/Main UI Canvas").transform:Find("TestPanel/InputField").gameObject:GetComponent("InputField")
 buttonTest.onClick:AddListener(function()
