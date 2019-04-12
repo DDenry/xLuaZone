@@ -403,6 +403,9 @@ function onenable()
     --初始化数据table
     PROCESS.InitDataTable()
 
+    --根据命名空间预设变量
+    PROCESS.PresetByNamespace()
+
     --模型
     OriObject = GameObject.Find("Root/Models/Contents/Prefab-ModelLoader/MakerAll")
 
@@ -412,6 +415,17 @@ function onenable()
     --加载标注点
     local COROUTINE_LoadPointData = coroutine.create(StudioData.LoadPointData)
     assert(coroutine.resume(COROUTINE_LoadPointData))
+end
+
+function PROCESS.PresetByNamespace()
+    ---判断Sense Studio API
+    if _Global:GetData("SenseStudioNameSpace") == "SceneStudio.StudioDataManager" then
+        --
+        PreviewManager = CS.PreviewManager.Instance
+    elseif _Global:GetData("SenseStudioNameSpace") == "SenseStudio.IV.StudioDataManager" then
+        --
+        PreviewManager = CS.SenseStudio.IV.StudioDataManager.Instance.CurrentScene.SceneData.TimelineData
+    end
 end
 
 --
@@ -449,6 +463,7 @@ function StudioData.FindStudioObjectData()
 
     local objectDataType
 
+    ---SenseStudioIII
     if SenseStudioNameSpace == "SceneStudio.StudioDataManager" then
 
         objects = CS.SceneStudio.SceneObjectsManager.Instance.Objects
@@ -485,6 +500,7 @@ function StudioData.FindStudioObjectData()
             end
         end
 
+        ---SenseStudioIV
     elseif SenseStudioNameSpace == "SenseStudio.IV.StudioDataManager" then
 
         objects = GameObject.FindObjectsOfType(typeof(CS.SenseStudio.IV.RuntimeData.ObjectData))
@@ -530,109 +546,226 @@ end
 function StudioData.LoadPointData()
     --
     print("Load PointData Enter!")
-    if OriObject:GetComponentsInChildren(typeof(CS.SceneStudio.PointData)).Length > 0 then
-        for i = 0, OriObject:GetComponentsInChildren(typeof(CS.SceneStudio.PointData)).Length - 1 do
-            --获取所有标注点
-            table_point[i] = OriObject:GetComponentsInChildren(typeof(CS.SceneStudio.PointData))[i]
-        end
 
-        --添加WebView
-        UniWebView_Point:AddComponent(typeof(CS.CallbackFromWebToUnity))
+    --添加WebView
+    UniWebView_Point:AddComponent(typeof(CS.CallbackFromWebToUnity))
 
-        --获取标注点WebView回调
-        CallbackFromUniWebView = UniWebView_Point:GetComponent(typeof(CS.CallbackFromWebToUnity))
+    --获取标注点WebView回调
+    CallbackFromUniWebView = UniWebView_Point:GetComponent(typeof(CS.CallbackFromWebToUnity))
 
-        --注册WebView回调监听
-        CallbackFromUniWebView.OnReceived:AddListener(ClosePointWebView)
+    --注册WebView回调监听
+    CallbackFromUniWebView.OnReceived:AddListener(ClosePointWebView)
 
-        --普通标注点数量
-        local point_normal_number = 0
-        --步骤标注点数量
-        local point_step_number = 0
+    --普通标注点数量
+    local point_normal_number = 0
+    --步骤标注点数量
+    local point_step_number = 0
 
-        --生成相应的标注点Prefab
-        for i = 0, #table_point do
-            --获取场景中的预置件
-            local Prefab_Point_Tmp = CS.UnityEngine.Object.Instantiate(Prefab_Point)
-            Prefab_Point_Tmp.name = "Prefab_Point:" .. i
-            Prefab_Point_Tmp.transform:SetParent(Prefab_Point.transform.parent)
-            --
-            Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.UnityUI.TransformPointTracker)).TargetTransform = table_point[i].transform
-            Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.DepthCulling)).TargetTransform = table_point[i].transform
-            Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.TransformSetter)).Value = table_point[i].transform
-            Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.TransformSetter)):Set()
+    if _Global:GetData("SenseStudioNameSpace") == "SceneStudio.StudioDataManager" then
 
-            --显示标注点名称
-            if (table_point[i].name ~= nil) and (table_point[i].name:trim() ~= "") then
-                --判断是否为步骤标注点
-                if (string.sub(table_point[i].name, 1, 1) ~= "#") then
-                    --
-                    Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)).Value = "   " .. table_point[i].name .. "   "
+        if OriObject:GetComponentsInChildren(typeof(CS.SceneStudio.PointData)).Length > 0 then
 
+            for i = 0, OriObject:GetComponentsInChildren(typeof(CS.SceneStudio.PointData)).Length - 1 do
+                --获取所有标注点
+                table_point[i] = OriObject:GetComponentsInChildren(typeof(CS.SceneStudio.PointData))[i]
+            end
+
+            --生成相应的标注点Prefab
+            for i = 0, #table_point do
+
+                --获取场景中的预置件
+                local Prefab_Point_Tmp = CS.UnityEngine.Object.Instantiate(Prefab_Point)
+                Prefab_Point_Tmp.name = "Prefab_Point:" .. i
+                Prefab_Point_Tmp.transform:SetParent(Prefab_Point.transform.parent)
+                --
+                Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.UnityUI.TransformPointTracker)).TargetTransform = table_point[i].transform
+                Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.DepthCulling)).TargetTransform = table_point[i].transform
+                Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.TransformSetter)).Value = table_point[i].transform
+                Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.TransformSetter)):Set()
+
+                --显示标注点名称
+                if (table_point[i].name ~= nil) and (table_point[i].name:trim() ~= "") then
+                    --判断是否为步骤标注点
+                    if (string.sub(table_point[i].name, 1, 1) ~= "#") then
+                        --
+                        Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)).Value = "   " .. table_point[i].name .. "   "
+
+                    else
+                        Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)).Value = string.gsub(table_point[i].name, "#", "")
+                    end
                 else
-                    Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)).Value = string.gsub(table_point[i].name, "#", "")
+                    Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)).Value = "PointInfo"
                 end
-            else
-                Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)).Value = "PointInfo"
+                --
+                Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)):Set()
+
+                local sceneName = _Global:GetData("sceneName")
+                --设置标注点默认H5页
+                local point_url = wwwAssetPath .. sceneName .. "/" .. table_point[i]:GetComponent(typeof(CS.SceneStudio.ObjectData)).ID .. ".html"
+
+                --如果存在相对应的标注点Html则添加跳转监听
+                local www = CS.UnityEngine.WWW(point_url)
+
+                yield_return(www)
+
+                if www.error == nil then
+                    Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.QuickEvent)).onEvent:AddListener(
+                    --点击标注点打开WebView
+                            function()
+                                if _Global:GetData("RunningType") == "Single" and versionType == "android" then
+                                    point_url = "file:///android_asset/" .. childAppId .. "_" .. versionType .. "/" .. sceneName .. "/" .. table_point[i]:GetComponent(typeof(CS.SceneStudio.ObjectData)).ID .. ".html"
+                                else
+                                    point_url = wwwAssetPath .. sceneName .. "/" .. table_point[i]:GetComponent(typeof(CS.SceneStudio.ObjectData)).ID .. ".html"
+                                end
+
+                                print("point_url is " .. point_url)
+
+                                --打开WebView
+                                CallbackFromUniWebView:LoadFromFile(point_url, 0, 0, 0)
+
+                                --如果音频动画不为nil
+                                if (AudioSource.clip ~= nil) then
+                                    --暂停音频播放
+                                    AudioSource:Pause()
+                                end
+                            end)
+                    --不存在Html的标注点
+                else
+                    --设置Button颜色为不可点击
+                    local tmp_color = { r = 50 / 255, g = 50 / 255, b = 50 / 255, a = 1 }
+                    Prefab_Point_Tmp.transform:Find("GameObject/L/L UP/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
+                    Prefab_Point_Tmp.transform:Find("GameObject/L/L DOWN/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
+                    Prefab_Point_Tmp.transform:Find("GameObject/R/R UP/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
+                    Prefab_Point_Tmp.transform:Find("GameObject/R/R DOWN/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
+                end
+
+                --区分步骤标注点与普通标注点
+                if (string.sub(table_point[i].name, 1, 1) == "#") then
+                    --储存步骤标注点
+                    point_step_number = point_step_number + 1
+                    --取消步骤标注点的相机深度检测
+                    Destroy(Prefab_Point_Tmp.gameObject:GetComponent(typeof(CS.EzComponents.DepthCulling)))
+                    table_prefab_point_step[point_step_number] = Prefab_Point_Tmp
+                else
+                    --储存普通标注点
+                    point_normal_number = point_normal_number + 1
+                    table_prefab_point_normal[point_normal_number] = Prefab_Point_Tmp
+                end
+
+                --将所有标注点存入 table_prefab_point
+                table_prefab_point[i] = Prefab_Point_Tmp
             end
-            --
-            Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)):Set()
-
-            local sceneName = _Global:GetData("sceneName")
-            --设置标注点默认H5页
-            local point_url = wwwAssetPath .. sceneName .. "/" .. table_point[i]:GetComponent(typeof(CS.SceneStudio.ObjectData)).ID .. ".html"
-
-            --如果存在相对应的标注点Html则添加跳转监听
-            local www = CS.UnityEngine.WWW(point_url)
-            yield_return(www)
-            if www.error == nil then
-                Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.QuickEvent)).onEvent:AddListener(
-                --点击标注点打开WebView
-                        function()
-                            if _Global:GetData("RunningType") == "Single" and versionType == "android" then
-                                point_url = "file:///android_asset/" .. childAppId .. "_" .. versionType .. "/" .. sceneName .. "/" .. table_point[i]:GetComponent(typeof(CS.SceneStudio.ObjectData)).ID .. ".html"
-                            else
-                                point_url = wwwAssetPath .. sceneName .. "/" .. table_point[i]:GetComponent(typeof(CS.SceneStudio.ObjectData)).ID .. ".html"
-                            end
-
-                            print("point_url is " .. point_url)
-
-                            --打开WebView
-                            CallbackFromUniWebView:LoadFromFile(point_url, 0, 0, 0)
-
-                            --如果音频动画不为nil
-                            if (AudioSource.clip ~= nil) then
-                                --暂停音频播放
-                                AudioSource:Pause()
-                            end
-                        end)
-                --不存在Html的标注点
-            else
-                --设置Button颜色为不可点击
-                local tmp_color = { r = 50 / 255, g = 50 / 255, b = 50 / 255, a = 1 }
-                Prefab_Point_Tmp.transform:Find("GameObject/L/L UP/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
-                Prefab_Point_Tmp.transform:Find("GameObject/L/L DOWN/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
-                Prefab_Point_Tmp.transform:Find("GameObject/R/R UP/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
-                Prefab_Point_Tmp.transform:Find("GameObject/R/R DOWN/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
-            end
-
-            --区分步骤标注点与普通标注点
-            if (string.sub(table_point[i].name, 1, 1) == "#") then
-                --储存步骤标注点
-                point_step_number = point_step_number + 1
-                --取消步骤标注点的相机深度检测
-                Destroy(Prefab_Point_Tmp.gameObject:GetComponent(typeof(CS.EzComponents.DepthCulling)))
-                table_prefab_point_step[point_step_number] = Prefab_Point_Tmp
-            else
-                --储存普通标注点
-                point_normal_number = point_normal_number + 1
-                table_prefab_point_normal[point_normal_number] = Prefab_Point_Tmp
-            end
-            --将所有标注点存入 table_prefab_point
-            table_prefab_point[i] = Prefab_Point_Tmp
+        else
+            print("There's no point data!")
         end
-    else
-        print("There's no point data!")
+
+    elseif _Global:GetData("SenseStudioNameSpace") == "SenseStudio.IV.StudioDataManager" then
+
+        local objectData = OriObject:GetComponentsInChildren(typeof(CS.SenseStudio.IV.RuntimeData.ObjectData), true)
+
+        for i = 0, objectData.Length - 1 do
+
+            if objectData[i].CustomDataList.Count > 0 then
+
+                for j = 0, objectData[i].CustomDataList.Count - 1 do
+
+                    if objectData[i].CustomDataList[j].Name == "mark-point" then
+
+                        local objectDataGameObject = objectData[i].gameObject
+
+                        --获取场景中的预置件
+                        local Prefab_Point_Tmp = CS.UnityEngine.Object.Instantiate(Prefab_Point)
+                        Prefab_Point_Tmp.name = "Prefab_Point:" .. i
+
+                        Prefab_Point_Tmp.transform:SetParent(Prefab_Point.transform.parent)
+                        --
+                        Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.UnityUI.TransformPointTracker)).TargetTransform = objectDataGameObject.transform
+                        Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.DepthCulling)).TargetTransform = objectDataGameObject.transform
+                        Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.TransformSetter)).Value = objectDataGameObject.transform
+                        Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.TransformSetter)):Set()
+
+                        --显示标注点名称
+                        if (objectDataGameObject.name ~= nil) and (objectDataGameObject.name:trim() ~= "") then
+                            --判断是否为步骤标注点
+                            if (string.sub(objectDataGameObject.name, 1, 1) ~= "#") then
+                                --
+                                Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)).Value = "   " .. objectDataGameObject.name .. "   "
+
+                            else
+                                Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)).Value = string.gsub(objectDataGameObject.name, "#", "")
+                            end
+                        else
+                            Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)).Value = "PointInfo"
+                        end
+                        --
+                        Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)):Set()
+
+                        local sceneName = _Global:GetData("sceneName")
+
+                        local guid = tostring(objectData[i]:GetComponent(typeof(CS.SenseStudio.IV.RuntimeData.ObjectData)).Guid):sub(1, tostring(objectData[i]:GetComponent(typeof(CS.SenseStudio.IV.RuntimeData.ObjectData)).Guid):find(":") - 1)
+
+                        --设置标注点默认H5页
+                        local point_url = wwwAssetPath .. sceneName .. "/" .. guid .. ".html"
+
+                        print("PointUri:" .. point_url)
+
+                        --如果存在相对应的标注点Html则添加跳转监听
+                        local www = CS.UnityEngine.WWW(point_url)
+
+                        yield_return(www)
+
+                        if www.error == nil then
+
+                            Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.QuickEvent)).onEvent:AddListener(
+                            --点击标注点打开WebView
+                                    function()
+                                        if _Global:GetData("RunningType") == "Single" and versionType == "android" then
+                                            point_url = "file:///android_asset/" .. childAppId .. "_" .. versionType .. "/" .. sceneName .. "/" .. guid .. ".html"
+                                        else
+                                            point_url = wwwAssetPath .. sceneName .. "/" .. guid .. ".html"
+                                        end
+
+                                        print("point_url is " .. point_url)
+
+                                        --打开WebView
+                                        CallbackFromUniWebView:LoadFromFile(point_url, 0, 0, 0)
+
+                                        --如果音频动画不为nil
+                                        if (AudioSource.clip ~= nil) then
+                                            --暂停音频播放
+                                            AudioSource:Pause()
+                                        end
+                                    end)
+                            --不存在Html的标注点
+                        else
+                            --设置Button颜色为不可点击
+                            local tmp_color = { r = 50 / 255, g = 50 / 255, b = 50 / 255, a = 1 }
+                            Prefab_Point_Tmp.transform:Find("GameObject/L/L UP/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
+                            Prefab_Point_Tmp.transform:Find("GameObject/L/L DOWN/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
+                            Prefab_Point_Tmp.transform:Find("GameObject/R/R UP/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
+                            Prefab_Point_Tmp.transform:Find("GameObject/R/R DOWN/GameObject/Button").gameObject:GetComponent("Image").color = tmp_color
+                        end
+
+                        --区分步骤标注点与普通标注点
+                        if (string.sub(objectDataGameObject.name, 1, 1) == "#") then
+                            --储存步骤标注点
+                            point_step_number = point_step_number + 1
+                            --取消步骤标注点的相机深度检测
+                            Destroy(Prefab_Point_Tmp.gameObject:GetComponent(typeof(CS.EzComponents.DepthCulling)))
+
+                            table_prefab_point_step[point_step_number] = Prefab_Point_Tmp
+                        else
+                            --储存普通标注点
+                            point_normal_number = point_normal_number + 1
+                            table_prefab_point_normal[point_normal_number] = Prefab_Point_Tmp
+                        end
+
+                        --将所有标注点存入 table_prefab_point
+                        table_prefab_point[#table_prefab_point + 1] = Prefab_Point_Tmp
+                    end
+                end
+            end
+        end
     end
 
     --判断是否有普通标注点
@@ -755,10 +888,13 @@ function StudioData.HandleAnimation()
     local timeLines
 
     if _Global:GetData("SenseStudioNameSpace") == "SceneStudio.StudioDataManager" then
+
         timeLines = CS.SceneStudio.TimelinesManager.Instance.Timelines
 
     elseif _Global:GetData("SenseStudioNameSpace") == "SenseStudio.IV.StudioDataManager" then
+
         timeLines = CS.SenseStudio.IV.StudioDataManager.Instance.CurrentScene.SceneData.TimelineData.SceneTimelineData
+
     end
 
     --currentscene.SceneData.TimelineData.SceneTimelineData.Count
@@ -1119,9 +1255,9 @@ function ClosePointWebView(message)
 end
 
 --[[
-	*初始化，遍历模型，并给每一个MeshRenderer的material添加切面shader
-	*点击切面功能以后再复制相应模型
-	]]
+    *初始化，遍历模型，并给每一个MeshRenderer的material添加切面shader
+    *点击切面功能以后再复制相应模型
+    ]]
 --
 function PROCESS.InitDataTable()
 
@@ -1341,6 +1477,8 @@ function COMMON.RegisterListener()
         if Explosion ~= nil then
             Explosion:SetActive(true)
         end
+
+        print(">>>>>>>>>>>>>>>>>>" .. BoomStep)
 
         --播放爆炸动画
         PreviewManager:PreviewSceneStepData(BoomStep)
@@ -1836,7 +1974,7 @@ end
 function PROCESS.DisposePointFunction()
     --销毁所有标注点
     if MENU.functionsList['POINT'] then
-        for i = 0, #table_prefab_point do
+        for i = 1, #table_prefab_point do
             Destroy(table_prefab_point[i].gameObject)
         end
     end
