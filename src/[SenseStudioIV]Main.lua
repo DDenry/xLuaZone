@@ -1342,9 +1342,9 @@ function CALLBACK.MarkerJSONLoaded(markerJson)
     --解析配置文件
     local markerTxt = JSON.Parse(markerJson)
 
-    local markerInfos = CS.Newtonsoft.Json.JsonConvert.DeserializeObject(markerJson,typeof(CS.SubScene.MarkerInfo))
+    --local markerInfos = CS.Newtonsoft.Json.JsonConvert.DeserializeObject(markerJson)
 
-    print(markerInfos.Count)
+    --print(markerInfos.Count)
 
     --markerTxt.Count 元素数量
     --遍历
@@ -1354,6 +1354,9 @@ function CALLBACK.MarkerJSONLoaded(markerJson)
         print(tostring(markerTxt[i][2]))
         print(tostring(markerTxt[i][3]))
         print(tostring(markerTxt[i][4]))
+        print(tostring(markerTxt[i][5]))
+        print(tostring(markerTxt[i][6]))
+        print(tostring(markerTxt[i][7]))
         --
         local table_MarkerJson = {}
 
@@ -2372,7 +2375,7 @@ function PROCEDURE.StartScanModelScene()
 
         local SenseStudioNameSpace
 
-        if projectPath ~= nil and projectPath ~= "" and sceneGuid ~= nil and sceneGuid ~= "" then
+        if projectPath ~= nil and projectPath ~= "" and projectPath ~= "null" and sceneGuid ~= nil and sceneGuid ~= "" and sceneGuid ~= "null" then
             --获取SenseStudioIV的DataManager实例
             StudioDataManager = CS.SenseStudio.IV.StudioDataManager.Instance
 
@@ -2822,6 +2825,7 @@ function PROCESS.HandleURL(message)
     else
         haveMulModel = ""
     end
+
     LogInfo("haveMulModel", haveMulModel)
 
     --设置第二页H5路径

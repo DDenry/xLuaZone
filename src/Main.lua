@@ -1446,7 +1446,7 @@ end
 --执行相应的功能
 function PROCESS.StartAimedFunction()
 
-    --doType = "media"
+    doType = "media"
 
     LogInfo("DoType", doType)
 
@@ -3028,7 +3028,7 @@ function MEDIA.Prepare()
             LogInfo(currentMarkerGameObject.name .. " has loaded its media!")
 
             --判断当前marker media数量
-            if #MEDIA.mediaArray[currentMarkerGameObject.name] == 1 then
+            if #MEDIA.mediaArray[currentMarkerGameObject.name] == 1 and #MEDIA.mediaArray[currentMarkerGameObject.name][1].url == 1 then
 
                 MEDIA.canAutoResume = true
                 --
@@ -3061,7 +3061,7 @@ function MEDIA.Resume()
             end
         end
 
-    elseif #MEDIA.mediaArray[currentMarkerGameObject.name] == 1 and #MEDIA.mediaArray[currentMarkerGameObject.name].url == 1 then
+    elseif #MEDIA.mediaArray[currentMarkerGameObject.name] == 1 and #MEDIA.mediaArray[currentMarkerGameObject.name][1].url == 1 then
 
         MEDIA.canAutoResume = true
 
@@ -3739,7 +3739,9 @@ function update()
             local aspectRatioFitter = VIDEO.renderRawImage.gameObject:GetComponent("AspectRatioFitter")
             if aspectRatioFitter ~= nil then
                 aspectRatioFitter.aspectMode = CS.UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent
-                aspectRatioFitter.aspectRatio = VIDEO.videoPlayer.texture.width / VIDEO.videoPlayer.texture.height
+                if VIDEO.videoPlayer.texture ~= nil then
+                    aspectRatioFitter.aspectRatio = VIDEO.videoPlayer.texture.width / VIDEO.videoPlayer.texture.height
+                end
             end
         end
 
