@@ -3,7 +3,7 @@
 --- DateTime: 2017/6/19 22:18
 ---
 
---local Variable = require "Tool_StaticVariable"
+local BasePackage = require('[BasePackage]')
 local util = require 'xlua.util'
 local yield_return = (require 'cs_coroutine').yield_return
 
@@ -491,13 +491,6 @@ function onenable()
         LogError("Vuforia's license key is empty!")
     end
 
-    --require方法
-    if Variable then
-        LogInfo("Required Tool_StaticVariable.lua in MainController!")
-    else
-        LogInfo("Give up the method 'require()' temporarily!")
-    end
-
     --TODO:修改参数
     PlayerPrefs.SetString("subApp_childApp", "SHOW")
 end
@@ -505,6 +498,13 @@ end
 --
 function start()
     LogInfo("MainController_Start!")
+
+    --Require
+    if BasePackage then
+        print("Require [BasePackage] succeed!")
+    else
+        print("Require [BasePackage] failed!")
+    end
 
     --设置垃圾自动回收
     collectgarbage("setpause", 100)

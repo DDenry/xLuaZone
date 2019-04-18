@@ -457,6 +457,8 @@ VIDEO.mediaQuad = Root.transform:Find("TmpSave/MediaQuad")
 
 VIDEO.videoPlayer = Root.transform:Find("Functions/VideoPlayerController"):GetComponent("VideoPlayer")
 
+MEDIA.backgroundMusic = Root.transform:Find("Functions/BackgroundMusic"):GetComponent("AudioSource")
+
 VIDEO.renderFullScreenRawImage = MEDIA.UI.transform:Find("VideoRender"):GetComponentInChildren(typeof(CS.UnityEngine.UI.RawImage))
 VIDEO.renderFullScreenButton = MEDIA.UI.transform:Find("VideoRender"):GetComponent("Button")
 VIDEO.quitFullScreenButton = MEDIA.UI.transform:Find("VideoRender/QuitFullScreen"):GetComponent("Button")
@@ -473,6 +475,7 @@ MEDIA.totalTimeStamp = MEDIA.UI.transform:Find("NavigationBar/ProgressBar/TotalT
 MEDIA.buttonPlay = MEDIA.UI.transform:Find("NavigationBar/ButtonController/ButtonPlay"):GetComponent("Button")
 --buttonPause
 MEDIA.buttonPause = MEDIA.UI.transform:Find("NavigationBar/ButtonController/ButtonPause"):GetComponent("Button")
+MEDIA.fullScreenButton = MEDIA.UI.transform:Find("NavigationBar/FullScreen"):GetComponent("Button")
 
 MEDIA.switchPanel = MEDIA.UI.transform:Find("SwitchPanel")
 MEDIA.previousButton = MEDIA.switchPanel.transform:Find("Previous"):GetComponent("Button")
@@ -1912,7 +1915,7 @@ function CALLBACK.TrackingFound(DynamicTarget)
                 LogInfo("Current tracker has loaded media!")
 
                 --无需再次加载
-                needLoad = false
+                --needLoad = false
             end
         end
     else
@@ -1981,7 +1984,7 @@ function CALLBACK.TrackingFound(DynamicTarget)
 
                 if doType ~= nil and doType == "media" then
                     --Resume Media
-                    MEDIA.Resume()
+                    --MEDIA.Resume()
                 end
             end
 
@@ -2812,6 +2815,13 @@ function MEDIA.InitCommonComponents()
     MEDIA.previousButton.gameObject:GetComponent("Image").color = themeColor
     MEDIA.nextButton.gameObject:GetComponent("Image").color = themeColor
 
+    COMMON.RegisterListener(MEDIA.fullScreenButton.onClick, function()
+        --打开全屏
+        VIDEO.fullScreen()
+        --隐藏导航栏全屏按钮
+        MEDIA.fullScreenButton.gameObject:SetActive(false)
+    end)
+
     --PreviousButton
     COMMON.RegisterListener(MEDIA.previousButton.onClick, function()
         --
@@ -3018,6 +3028,11 @@ function MEDIA.Prepare()
 
             canvas.transform.localScale = Vector3.ones
 
+            local canvasScaler = canvas.gameObject:AddComponent(typeof(CS.UnityEngine.UI.CanvasScaler))
+
+            canvasScaler.dynamicPixelsPerUnit = 100
+            canvasScaler.referencePixelsPerUnit = 0.1
+
             local canvasRect = canvas.gameObject:GetComponent(typeof(CS.UnityEngine.RectTransform)) and canvas.gameObject:GetComponent(typeof(CS.UnityEngine.RectTransform)) or canvas.gameObject:AddComponent(typeof(CS.UnityEngine.RectTransform))
 
             USERINTERFACE.InitRectTransform(canvasRect)
@@ -3034,25 +3049,16 @@ function MEDIA.Prepare()
 
             mediaQuad.gameObject:SetActive(true)
 
-        else
-            LogInfo(currentMarkerGameObject.name .. " has loaded its media!")
-
-            --判断当前marker media数量
-            if #MEDIA.mediaArray[currentMarkerGameObject.name] == 1 then
-
-                MEDIA.canAutoResume = true
-                --
-                MEDIA.currentMedia = MEDIA.mediaArray[currentMarkerGameObject.name][1]
-
-                MEDIA.buttonPlay.onClick:Invoke()
-            else
-                MEDIA.canAutoResume = false
-
-                --TODO:播放背景音乐
-
-            end
         end
+        --
+        MEDIA.Resume()
     end
+end
+
+function MEDIA.PlayBackgroundMusic()
+    print("Background music is playing ~")
+
+    MEDIA.backgroundMusic.gameObject:SetActive(true)
 end
 
 --
@@ -3072,6 +3078,7 @@ function MEDIA.Resume()
         if media.type == "AUDIO" then
             --Resume Twinkle
             AUDIO.TwinkleTip(media)
+
         elseif media.type == "VIDEO" then
             --
             VIDEO.TwinkleTip(media)
@@ -3139,6 +3146,9 @@ function MEDIA.Resume()
             VIDEO.PlayVideo(MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id])
 
         end
+
+    else
+        MEDIA.PlayBackgroundMusic()
     end
 end
 
@@ -3147,6 +3157,7 @@ function MEDIA.NailAudioTip(parent, media)
 
     print("NailAudioTip >>> " .. media.name)
 
+    --
     local audioTip = GameObject("AudioTip"):AddComponent(typeof(CS.UnityEngine.RectTransform))
 
     --
@@ -3168,11 +3179,11 @@ function MEDIA.NailAudioTip(parent, media)
     --生成音频边界Image
     local image = audioTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Image))
     --设置音频边框
-    image.sprite = Resources.Load("Media/border", typeof(CS.UnityEngine.Sprite))
+    image.sprite = Resources.Load("Media/rect-border", typeof(CS.UnityEngine.Sprite))
     --设置Image Type
-    --image.type = Image.Type.Sliced
+    image.type = Image.Type.Sliced
     --image.fillCenter = true
-    image.type = Image.Type.Simple
+    --image.type = Image.Type.Simple
 
     --设置边框颜色为主题颜色
     image.color = themeColor
@@ -3194,7 +3205,7 @@ function MEDIA.NailAudioTip(parent, media)
     cover.preserveAspect = true
 
     --图片闪烁提示
-    AUDIO.TwinkleTip(media)
+    --AUDIO.TwinkleTip(media)
 
     --添加按钮
     local button = audioTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Button))
@@ -3250,10 +3261,11 @@ function MEDIA.NailVideoTip(parent, media)
     --提示框占比
     videoTip.sizeDelta = Vector2.zero
 
-    --[[    --边框
-        local border = videoTip.gameObject:AddComponent(typeof(Image))
-        border.sprite = Resources.Load("Media/border", typeof(CS.UnityEngine.Sprite))
-        border.color = themeColor]]
+    --边框
+    local border = videoTip.gameObject:AddComponent(typeof(Image))
+    border.sprite = Resources.Load("Media/rect-border", typeof(CS.UnityEngine.Sprite))
+    border.color = themeColor
+    border.type = Image.Type.Sliced
 
     --生成按钮
     local videoRenderedRawImage = GameObject("VideoRenderedRawImage"):AddComponent(typeof(CS.UnityEngine.RectTransform))
@@ -3399,28 +3411,7 @@ function MEDIA.NailVideoTip(parent, media)
             if tempTime - VIDEO.PressDownStamp < 0.5 then
                 print("Double click!")
 
-                --将画面渲染设置为RenderImage
-                VIDEO.renderRawImage = VIDEO.renderFullScreenRawImage
-
-                --打开全屏视频
-                VIDEO.renderFullScreenRawImage.transform.parent.gameObject:SetActive(true)
-
-                MEDIA.switchPanel.gameObject:SetActive((#MEDIA.currentMedia.url > 1 and true) or false)
-
-                --判断当前切换按钮显示状态
-                if MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].index == 1 then
-                    MEDIA.previousButton.gameObject:SetActive(false)
-                    MEDIA.nextButton.gameObject:SetActive(true)
-                elseif MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].index == #MEDIA.currentMedia.url then
-                    MEDIA.nextButton.gameObject:SetActive(false)
-                    MEDIA.previousButton.gameObject:SetActive(true)
-                else
-                    MEDIA.previousButton.gameObject:SetActive(true)
-                    MEDIA.nextButton.gameObject:SetActive(true)
-                end
-
-                --关闭追踪
-                DataSetLoader:DeactivateDataSet()
+                --VIDEO.fullScreen()
 
             end
 
@@ -3440,8 +3431,33 @@ function MEDIA.NailVideoTip(parent, media)
     end
 
     --
-    VIDEO.TwinkleTip(media)
+    --VIDEO.TwinkleTip(media)
 
+end
+
+function VIDEO.fullScreen()
+    --将画面渲染设置为RenderImage
+    VIDEO.renderRawImage = VIDEO.renderFullScreenRawImage
+
+    --打开全屏视频
+    VIDEO.renderFullScreenRawImage.transform.parent.gameObject:SetActive(true)
+
+    MEDIA.switchPanel.gameObject:SetActive((#MEDIA.currentMedia.url > 1 and true) or false)
+
+    --判断当前切换按钮显示状态
+    if MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].index == 1 then
+        MEDIA.previousButton.gameObject:SetActive(false)
+        MEDIA.nextButton.gameObject:SetActive(true)
+    elseif MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].index == #MEDIA.currentMedia.url then
+        MEDIA.nextButton.gameObject:SetActive(false)
+        MEDIA.previousButton.gameObject:SetActive(true)
+    else
+        MEDIA.previousButton.gameObject:SetActive(true)
+        MEDIA.nextButton.gameObject:SetActive(true)
+    end
+
+    --关闭追踪
+    DataSetLoader:DeactivateDataSet()
 end
 
 --根据视频帧数/视频帧率计算时间
@@ -3502,6 +3518,9 @@ end
 
 function MEDIA.Dispatch()
 
+    --TODO:停止背景音
+    MEDIA.backgroundMusic.gameObject:SetActive(false)
+
     if AUDIO.audioSource.isPlaying then
         AUDIO.PauseAudio()
     end
@@ -3549,6 +3568,9 @@ function AUDIO.AudioPrepared()
 
     --播放模式下显示UI
     MEDIA.UI:SetActive(true)
+
+    --TODO：关闭全屏按钮
+    MEDIA.fullScreenButton.gameObject:SetActive(false)
 
     AUDIO.audioSource:Play()
     --
@@ -3693,6 +3715,8 @@ end
 AUDIO.currentProgress = 0.0
 
 function AUDIO.PauseAudio()
+    --
+    AUDIO.audioSource.gameObject:SetActive(false)
 
     AUDIO.audioSource:Pause()
 
@@ -3706,9 +3730,6 @@ function AUDIO.PauseAudio()
         print("Save media " .. media.name .. " >>> " .. MEDIA.currentMedia._id .. "'s progress is " .. media.progress)
 
     end
-
-    --
-    AUDIO.audioSource.gameObject:SetActive(false)
 
     AUDIO.needUpdateProcess = false
 
@@ -3776,6 +3797,8 @@ function VIDEO.VideoPrepared()
 
     --播放视频的模式下显示UI
     MEDIA.UI:SetActive(true)
+    --
+    MEDIA.fullScreenButton.gameObject:SetActive(not VIDEO.renderFullScreenButton.gameObject.activeSelf)
 
     --开始播放视频
     VIDEO.videoPlayer:Play()
@@ -3818,6 +3841,9 @@ end
 function MEDIA.LostTarget()
 
     print("Media process => Have lost target!")
+
+    --TODO:目标丢失时停止背景音
+    MEDIA.backgroundMusic.gameObject:SetActive(false)
 
     if MEDIA.UI.activeSelf then
 
