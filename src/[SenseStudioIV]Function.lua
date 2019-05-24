@@ -700,14 +700,12 @@ function StudioData.LoadPointData()
                         --
                         Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.StringSetter)):Set()
 
-                        local sceneName = _Global:GetData("sceneName")
-
                         local guid = tostring(objectData[i]:GetComponent(typeof(CS.SenseStudio.IV.RuntimeData.ObjectData)).Guid):sub(1, tostring(objectData[i]:GetComponent(typeof(CS.SenseStudio.IV.RuntimeData.ObjectData)).Guid):find(":") - 1)
 
                         --设置标注点默认H5页
-                        local point_url = wwwAssetPath .. sceneName .. "/" .. guid .. ".html"
+                        local point_url = wwwAssetPath .. guid .. ".html"
 
-                        print("PointUri:" .. point_url)
+                        print("[PointUri] >>> " .. point_url)
 
                         --如果存在相对应的标注点Html则添加跳转监听
                         local www = CS.UnityEngine.WWW(point_url)
@@ -720,9 +718,9 @@ function StudioData.LoadPointData()
                             --点击标注点打开WebView
                                     function()
                                         if _Global:GetData("RunningType") == "Single" and versionType == "android" then
-                                            point_url = "file:///android_asset/" .. childAppId .. "_" .. versionType .. "/" .. sceneName .. "/" .. guid .. ".html"
+                                            point_url = "file:///android_asset/" .. childAppId .. "_" .. versionType .. "/" .. guid .. ".html"
                                         else
-                                            point_url = wwwAssetPath .. sceneName .. "/" .. guid .. ".html"
+                                            point_url = wwwAssetPath .. guid .. ".html"
                                         end
 
                                         print("point_url is " .. point_url)

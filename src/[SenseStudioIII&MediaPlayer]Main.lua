@@ -1024,6 +1024,12 @@ function PROCESS.TextLoader(filePath)
             --必要文件缺失，终止程序
             SSMessageManager:ReceiveMessage("ThrowErrorException", fileInfo.Name .. ":" .. www.error)
         end
+    elseif fileInfo.Name == "media.json" then
+        if fileExists then
+            CALLBACK.MediaJSONLoaded(www.text)
+        else
+            LogWarning(fileInfo.Name, www.error)
+        end
         --AllPageInfo.json
     elseif fileInfo.Name == "AllPageInfo.json" then
         --
@@ -1695,6 +1701,19 @@ function PROCESS.SwitchScene()
         assert(coroutine.resume(COROUTINE_LoadMarkerInfo))
         --
         COROUTINE_LoadMarkerInfo = nil
+
+        --TODO:
+        --加载marker.json
+        local COROUTINE_LoadMediaInfo = coroutine.create(function()
+            --设置相应场景类型所需回调
+            PROCESS.ListenProcess({ sceneType }, "LoadMediaJson", "ADD")
+            --加载Marker.json
+            PROCESS.TextLoader(wwwAssetPath .. "media.json")
+        end)
+        --
+        assert(coroutine.resume(COROUTINE_LoadMediaInfo))
+        --
+        COROUTINE_LoadMediaInfo = nil
     end
 
     --需要加载书页列表信息
@@ -1854,9 +1873,9 @@ function VUFORIA.FindDynamicTarget()
                 --
                 arr_DynamicTargets[i].gameObject:AddComponent(typeof(Vuforia.TurnOffBehaviour))
 
-                print("" .. arr_DynamicTargets[i].gameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget.Name)
+                --print("" .. arr_DynamicTargets[i].gameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget.Name)
                 --获取到识别图的大小
-                print(arr_DynamicTargets[i].gameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget:GetSize())
+                --print(arr_DynamicTargets[i].gameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget:GetSize())
 
                 --注册onFound监听
                 local onFound = arr_DynamicTargets[i].gameObject:GetComponent(typeof(CS.CustomTrackableEventHandler)).onFound
@@ -1924,79 +1943,81 @@ function CALLBACK.TrackingFound(DynamicTarget)
     end
 
     --
-    for i = 1, #table_MarkerToModel do
-        --遍历列表寻找识别物匹配的模型
-        if string.gsub(DynamicTarget.name, "DynamicTarget", "") == "-" .. table_MarkerToModel[i][6] then
-            --解析Marker信息
-            --sceneName
-            sceneName = ((table_MarkerToModel[i][3] == nil) and "") or table_MarkerToModel[i][3]
-            --pageName
-            pageName = ((table_MarkerToModel[i][4] == nil) and "") or table_MarkerToModel[i][4]
-            --设置模型名称name
-            modelName = ((table_MarkerToModel[i][5] == nil) and "") or table_MarkerToModel[i][5]
-            --
-            haveMulModel = ((table_MarkerToModel[i][8] == nil) and "") or table_MarkerToModel[i][8]
-            --
-            sectionNum = ((table_MarkerToModel[i][7] == nil) and "") or ((string.len(tostring(table_MarkerToModel[i][7])) > 1 and "") or table_MarkerToModel[i][7])
+    --[[    for i = 1, #table_MarkerToModel do
+            --遍历列表寻找识别物匹配的模型
+            if string.gsub(DynamicTarget.name, "DynamicTarget", "") == "-" .. table_MarkerToModel[i][6] then
+                --解析Marker信息
+                --sceneName
+                sceneName = ((table_MarkerToModel[i][3] == nil) and "") or table_MarkerToModel[i][3]
+                --pageName
+                pageName = ((table_MarkerToModel[i][4] == nil) and "") or table_MarkerToModel[i][4]
+                --设置模型名称name
+                modelName = ((table_MarkerToModel[i][5] == nil) and "") or table_MarkerToModel[i][5]
+                --
+                haveMulModel = ((table_MarkerToModel[i][8] == nil) and "") or table_MarkerToModel[i][8]
+                --
+                sectionNum = ((table_MarkerToModel[i][7] == nil) and "") or ((string.len(tostring(table_MarkerToModel[i][7])) > 1 and "") or table_MarkerToModel[i][7])
 
-            --如果显示模式为UIWidget
-            if pageListType == pageListType_UIWidget then
-                --标识
-                local value
-                --将DataSource中的数据IsSelected全部设为false
-                for j = 0, CustomTileView.DataSource.Count - 1 do
-                    CustomTileView.DataSource[j].IsSelected = false
-                    --判断识别图场景名称所对应的下标
-                    if sceneName == CustomTileView.DataSource[j].SceneName then
-                        value = j
+                --如果显示模式为UIWidget
+                if pageListType == pageListType_UIWidget then
+                    --标识
+                    local value
+                    --将DataSource中的数据IsSelected全部设为false
+                    for j = 0, CustomTileView.DataSource.Count - 1 do
+                        CustomTileView.DataSource[j].IsSelected = false
+                        --判断识别图场景名称所对应的下标
+                        if sceneName == CustomTileView.DataSource[j].SceneName then
+                            value = j
+                        end
+                    end
+
+                    --将创建出来的书页标识设为隐藏
+                    for k = 0, CustomTileView:GetVisibleComponents().Count - 1 do
+                        CustomTileView:GetVisibleComponents()[k].SelectedSignal:SetActive(false)
+                    end
+
+                    --如果当前标识存在则显示
+                    if value ~= nil then
+                        --
+                        if CustomTileView:GetItemComponent(value) ~= nil then
+                            CustomTileView:GetItemComponent(value).SelectedSignal:SetActive(true)
+                        end
+
+                        --设置当前书页为选中状态
+                        CustomTileView.DataSource[value].IsSelected = true
+                    else
+                        COMMON.LogError("AllPageInfo.json 与 Marker.json 文件内容有误！")
                     end
                 end
 
-                --将创建出来的书页标识设为隐藏
-                for k = 0, CustomTileView:GetVisibleComponents().Count - 1 do
-                    CustomTileView:GetVisibleComponents()[k].SelectedSignal:SetActive(false)
-                end
+                --需要加载模型
+                if needLoad then
+                    --pagelist://model?url1=p2-20/assetbundle&url2=modelName&url3=&url4=3
+                    local url = "pagelist://doType?sceneName=" .. sceneName .. "&pageName=" .. pageName .. "&modelName=" .. modelName .. "&haveMulModel=" .. haveMulModel .. "&sectionNum=" .. sectionNum
 
-                --如果当前标识存在则显示
-                if value ~= nil then
-                    --
-                    if CustomTileView:GetItemComponent(value) ~= nil then
-                        CustomTileView:GetItemComponent(value).SelectedSignal:SetActive(true)
-                    end
-
-                    --设置当前书页为选中状态
-                    CustomTileView.DataSource[value].IsSelected = true
+                    --加载模型
+                    CALLBACK.PageListSelected(url)
                 else
-                    COMMON.LogError("AllPageInfo.json 与 Marker.json 文件内容有误！")
+                    --设置相应的模型名称
+                    MainSubtitleText.text = (modelName ~= nil and modelName) or ""
+
+                    if doType ~= nil and doType == "media" then
+                        --Resume Media
+                        --MEDIA.Resume()
+                    end
                 end
+
+                --找到便退出循环
+                break
             end
 
-            --需要加载模型
-            if needLoad then
-                --pagelist://model?url1=p2-20/assetbundle&url2=modelName&url3=&url4=3
-                local url = "pagelist://doType?sceneName=" .. sceneName .. "&pageName=" .. pageName .. "&modelName=" .. modelName .. "&haveMulModel=" .. haveMulModel .. "&sectionNum=" .. sectionNum
-
-                --加载模型
-                CALLBACK.PageListSelected(url)
-            else
-                --设置相应的模型名称
-                MainSubtitleText.text = (modelName ~= nil and modelName) or ""
-
-                if doType ~= nil and doType == "media" then
-                    --Resume Media
-                    --MEDIA.Resume()
-                end
+            --未找到相应模型
+            if i == #table_MarkerToModel then
+                LogError("There's no data about " .. DynamicTarget.name .. " in marker.json")
             end
+        end]]
 
-            --找到便退出循环
-            break
-        end
-
-        --未找到相应模型
-        if i == #table_MarkerToModel then
-            LogError("There's no data about " .. DynamicTarget.name .. " in marker.json")
-        end
-    end
+    MEDIA.Prepare()
 end
 
 --TrackingLost回调
@@ -2364,6 +2385,59 @@ function PROCESS.ShowOperateUI()
     COMMON.Function2XPCall(MEDIA.InitMediaTool)
 end
 
+local preUIAssets = GameObject.Find("Root/UI/Overlay Canvas/PreUIAssets")
+
+MEDIA.audioDark = preUIAssets.transform:Find("audio-dark"):GetComponent("Image").sprite
+MEDIA.audioLight = preUIAssets.transform:Find("audio-light"):GetComponent("Image").sprite
+MEDIA.videoDark = preUIAssets.transform:Find("video-dark"):GetComponent("RawImage").texture
+MEDIA.videoLight = preUIAssets.transform:Find("video-light"):GetComponent("RawImage").texture
+MEDIA.border = preUIAssets.transform:Find("border"):GetComponent("Image").sprite
+MEDIA.audio1 = preUIAssets.transform:Find("1"):GetComponent("Image").sprite
+MEDIA.audio2 = preUIAssets.transform:Find("2"):GetComponent("Image").sprite
+MEDIA.audio3 = preUIAssets.transform:Find("3"):GetComponent("Image").sprite
+MEDIA.audio4 = preUIAssets.transform:Find("4"):GetComponent("Image").sprite
+MEDIA.audio5 = preUIAssets.transform:Find("5"):GetComponent("Image").sprite
+MEDIA.audio6 = preUIAssets.transform:Find("6"):GetComponent("Image").sprite
+MEDIA.audio7 = preUIAssets.transform:Find("7"):GetComponent("Image").sprite
+MEDIA.audio8 = preUIAssets.transform:Find("8"):GetComponent("Image").sprite
+MEDIA.arrow = preUIAssets.transform:Find("arrow"):GetComponent("Image").sprite
+
+function MEDIA.LoadUIAssetBundle()
+    local image = GameObject.Find("Root/UI/Overlay Canvas/Image"):GetComponent("Image")
+
+    local LoadBundle = coroutine.create(
+            function()
+                local uri = wwwAssetPath .. "assetsbundle"
+
+                local webRequest = CS.UnityEngine.Networking.UnityWebRequestAssetBundle.GetAssetBundle(uri)
+
+                yield_return(webRequest:Send())
+
+                local assetBundle = CS.UnityEngine.Networking.DownloadHandlerAssetBundle.GetContent(webRequest)
+
+                --[同步]LoadAllAssets()
+                --[异步]从assetBundle中加载所需资源
+                local assets = assetBundle:LoadAllAssetsAsync()
+
+                yield_return(assets)
+
+                print("AssetsBundle Loaded,included " .. assets.allAssets.Length .. " assets!")
+
+                for i = 0, assets.allAssets.Length - 1 do
+                    --
+                    print(type(assets.allAssets[i]))
+                    image.sprite = assets.allAssets[i]
+                    yield_return(CS.UnityEngine.WaitForSeconds(1.0))
+
+                end
+
+                --
+                assetBundle:Unload(false)
+            end
+    )
+    assert(coroutine.resume(LoadBundle))
+end
+
 --模型加载完毕后回调
 function CALLBACK.ModelLoaded(...)
     --
@@ -2675,7 +2749,6 @@ function DEBUG.TaskInfo()
 end
 
 ---Media-Functions
-
 local Media = {
     --_id
     _id = -1,
@@ -2696,6 +2769,8 @@ local Media = {
     --
     tip = nil
 }
+
+MEDIA._id = 0
 
 function Media:new(name, type, anchorMin, anchorMax, url, ...)
 
@@ -2756,6 +2831,56 @@ MEDIA.canAutoResume = false
 
 MEDIA.currentMediaId = 1
 
+--MediaJson解析完成
+function CALLBACK.MediaJSONLoaded(mediaJson)
+    local medias = JSON.Parse(mediaJson)
+
+    for i = 0, medias.Count - 1 do
+        local targetName, mediaName, left, right, width, top, bottom, height, type, uri
+
+        _, _, _, targetName = string.find(tostring(medias[i][0]), "([\"'])(.-)%1")
+        _, _, _, mediaName = string.find(tostring(medias[i][1]), "([\"'])(.-)%1")
+        _, _, _, left = string.find(tostring(medias[i][4]), "([\"'])(.-)%1")
+        _, _, _, right = string.find(tostring(medias[i][5]), "([\"'])(.-)%1")
+        _, _, _, width = string.find(tostring(medias[i][9]), "([\"'])(.-)%1")
+        _, _, _, top = string.find(tostring(medias[i][7]), "([\"'])(.-)%1")
+        _, _, _, bottom = string.find(tostring(medias[i][8]), "([\"'])(.-)%1")
+        _, _, _, height = string.find(tostring(medias[i][6]), "([\"'])(.-)%1")
+        _, _, _, type = string.find(tostring(medias[i][10]), "([\"'])(.-)%1")
+        _, _, _, uri = string.find(tostring(medias[i][11]), "([\"'])(.-)%1")
+
+        local media = Media:new(mediaName, type:upper(), Vector2(tonumber(left) / tonumber(width), tonumber(bottom) / tonumber(height)), Vector2(tonumber(right) / tonumber(width), tonumber(top) / tonumber(height)), { uri })
+
+        --生成media实例
+        if MEDIA.mediaArray["DynamicTarget-" .. targetName] == nil then
+            local mediaArray = { media }
+
+            media._id = 1
+
+            MEDIA.mediaArray["DynamicTarget-" .. targetName] = mediaArray
+        else
+            --判断同页资源的位置
+            local _media = MEDIA.mediaArray["DynamicTarget-" .. targetName][#MEDIA.mediaArray["DynamicTarget-" .. targetName]]
+
+            --分层视频
+            if (media.anchorMin == _media.anchorMin) and (media.anchorMax == _media.anchorMax) then
+
+                media._id = _media._id
+
+                MEDIA.mediaArray["DynamicTarget-" .. targetName][1].url[#MEDIA.mediaArray["DynamicTarget-" .. targetName][1].url + 1] = media.url[1]
+            else
+                media._id = _media._id + 1
+
+                MEDIA.mediaArray["DynamicTarget-" .. targetName][#MEDIA.mediaArray["DynamicTarget-" .. targetName] + 1] = media
+            end
+        end
+
+    end
+
+    --设置相应场景类型所需回调
+    PROCESS.ListenProcess({ sceneType }, "LoadMediaJson", "DONE")
+end
+
 --初始化MediaTool
 function MEDIA.InitMediaTool()
     --初始化公共控件
@@ -2800,6 +2925,7 @@ function MEDIA.InitCommonComponents()
             VIDEO.PauseVideo()
         end
     end)
+
     --退出全屏按钮
     COMMON.RegisterListener(VIDEO.quitFullScreenButton.onClick, function()
         --打开追踪
@@ -2814,6 +2940,8 @@ function MEDIA.InitCommonComponents()
 
     MEDIA.previousButton.gameObject:GetComponent("Image").color = themeColor
     MEDIA.nextButton.gameObject:GetComponent("Image").color = themeColor
+
+    MEDIA.fullScreenButton.gameObject:GetComponent("Image").color = themeColor
 
     COMMON.RegisterListener(MEDIA.fullScreenButton.onClick, function()
         --打开全屏
@@ -2930,53 +3058,16 @@ function MEDIA.InitNavigationBar()
 end
 
 --根据数据解析当前所需Media资源
-function MEDIA.AnalysisMedia(root)
+function MEDIA.AnalysisMedia(root, dynamicTargetName)
 
-    local mediaArray = {}
-
-    MEDIA._id = 0
-
-    --TODO:Demo级别 根据识别名称生成相应Tip
-    if currentMarkerGameObject.name == "DynamicTarget-P114" then
-
-        mediaArray[#mediaArray + 1] = Media:new("audio1", "AUDIO", Vector2(550 / 4604.0, 4654 / 6305.0), Vector2(3975 / 4604.0, 5204 / 6305.0), { "audio1.mp3" })
-        mediaArray[#mediaArray + 1] = Media:new("韩信点兵", "VIDEO", Vector2(1438 / 4604.0, 2454 / 6305.0), Vector2(3093 / 4604.0, 4109 / 6305.0), { "video.mp4" })
-        mediaArray[#mediaArray + 1] = Media:new("audio2", "AUDIO", Vector2(550 / 4604.0, 846 / 6305.0), Vector2(3975 / 4604.0, 1419 / 6305.0), { "audio2.mp3" })
-
-    elseif currentMarkerGameObject.name == "DynamicTarget-P118" then
-
-        mediaArray[#mediaArray + 1] = Media:new("video", "VIDEO", Vector2(1431 / 4604.0, 1710 / 6305.0), Vector2(3097 / 4604.0, 3369 / 6305.0), { "video.mp4" })
-
-    elseif currentMarkerGameObject.name == "DynamicTarget-P121" then
-
-        mediaArray[#mediaArray + 1] = Media:new("audio", "AUDIO", Vector2(550 / 4604.0, 1885 / 6305.0), Vector2(3975 / 4604.0, 3150 / 6305.0), { "audio.mp3" })
-
-    elseif currentMarkerGameObject.name == "DynamicTarget-P127" then
-        mediaArray[#mediaArray + 1] = Media:new("video", "VIDEO", Vector2(1450 / 4604.0, 570 / 6305.0), Vector2(3090 / 4604.0, 2217 / 6305.0), { "video1.mp4", "video2.mp4", "video3.mp4", "video4.mp4", "video5.mp4" })
-    end
-
-    print("This marker needed " .. #mediaArray .. " media tips!")
-
-    if #mediaArray > 1 then
-
-        MEDIA.canAutoResume = false
-
-    elseif #mediaArray == 1 then
-
-        MEDIA.canAutoResume = true
-
-    end
-
-    --将Media数组保存
-    MEDIA.mediaArray[currentMarkerGameObject.name] = mediaArray
-
-    print("Media canAutoResume is " .. tostring(MEDIA.canAutoResume))
+    --取出该识别图下的mediaArray
+    local mediaArray = MEDIA.mediaArray[dynamicTargetName]
 
     for i, media in pairs(mediaArray) do
         --设置www路径头
         for j, assetUrl in pairs(media.url) do
 
-            assetUrl = wwwAssetPath .. sceneName .. "/" .. assetUrl
+            assetUrl = wwwAssetPath .. assetUrl
 
             media.url[j] = assetUrl
         end
@@ -2993,13 +3084,13 @@ function MEDIA.AnalysisMedia(root)
 
         print("Media >>>" .. media.name .. " - " .. #media.url .. " url!")
     end
-
 end
 
 --准备Media
 function MEDIA.Prepare()
 
     if currentMarkerGameObject ~= nil then
+
         --获取到识别到的ImageSize
         local size = currentMarkerGameObject:GetComponent(typeof(Vuforia.ImageTargetBehaviour)).ImageTarget:GetSize()
 
@@ -3026,7 +3117,7 @@ function MEDIA.Prepare()
 
             canvas.transform.localRotation = Quaternion.Euler(Vector3.zero)
 
-            canvas.transform.localScale = Vector3.ones
+            canvas.transform.localScale = Vector3.one
 
             local canvasScaler = canvas.gameObject:AddComponent(typeof(CS.UnityEngine.UI.CanvasScaler))
 
@@ -3045,7 +3136,7 @@ function MEDIA.Prepare()
             graphicRaycaster.ignoreReversedGraphics = false
 
             --TODO:根据多媒体信息数量生成Tip
-            MEDIA.AnalysisMedia(canvas)
+            MEDIA.AnalysisMedia(canvas, currentMarkerGameObject.name)
 
             mediaQuad.gameObject:SetActive(true)
 
@@ -3063,6 +3154,7 @@ end
 
 --
 function MEDIA.Resume()
+
     if currentMarkerGameObject == nil then
         return
     end
@@ -3082,26 +3174,6 @@ function MEDIA.Resume()
         elseif media.type == "VIDEO" then
             --
             VIDEO.TwinkleTip(media)
-
-            --判断切换按钮状态
-            if #media.url > 1 then
-                --重置播放进度
-                MEDIA.mediaArray[currentMarkerGameObject.name][media._id].progress = 0.0
-
-                local _previous = media.tip.transform:Find("PreviousArrow").gameObject
-                local _next = media.tip.transform:Find("NextArrow").gameObject
-                if media.index == 1 then
-                    --隐藏上一个按钮
-                    _previous:SetActive(false)
-                    --显示下一个按钮
-                    _next:SetActive(true)
-                elseif media.index == #media.url then
-                    --隐藏下一个按钮
-                    _next:SetActive(false)
-                    --显示上一个按钮
-                    _previous:SetActive(true)
-                end
-            end
         end
     end
 
@@ -3137,13 +3209,13 @@ function MEDIA.Resume()
 
         MEDIA.currentMediaId = 1
 
-        if MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].type == "AUDIO" then
+        if MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMediaId].type == "AUDIO" then
 
-            AUDIO.PlayAudio(MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id])
+            AUDIO.PlayAudio(MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMediaId])
 
-        elseif MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].type == "VIDEO" then
+        elseif MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMediaId].type == "VIDEO" then
 
-            VIDEO.PlayVideo(MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id])
+            VIDEO.PlayVideo(MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMediaId])
 
         end
 
@@ -3179,7 +3251,8 @@ function MEDIA.NailAudioTip(parent, media)
     --生成音频边界Image
     local image = audioTip.gameObject:AddComponent(typeof(CS.UnityEngine.UI.Image))
     --设置音频边框
-    image.sprite = Resources.Load("Media/rect-border", typeof(CS.UnityEngine.Sprite))
+    --image.sprite = Resources.Load("Media/rect-border", typeof(CS.UnityEngine.Sprite))
+    image.sprite = MEDIA.border
     --设置Image Type
     image.type = Image.Type.Sliced
     --image.fillCenter = true
@@ -3196,9 +3269,17 @@ function MEDIA.NailAudioTip(parent, media)
     USERINTERFACE.InitRectTransform(twinkleImage)
 
     --
+    twinkleImage.anchorMin = Vector2(0, 0.5)
+
+    twinkleImage.anchorMax = Vector2(1, 0.5)
+
+    twinkleImage.sizeDelta = Vector2(0, 0.15)
+
+    --
     local cover = twinkleImage.gameObject:AddComponent(typeof(Image))
 
-    cover.sprite = Resources.Load("Media/audio-light", typeof(CS.UnityEngine.Sprite))
+    --cover.sprite = Resources.Load("Media/audio-light", typeof(CS.UnityEngine.Sprite))
+    cover.sprite = MEDIA.audioLight
 
     cover.type = Image.Type.Simple
 
@@ -3263,7 +3344,9 @@ function MEDIA.NailVideoTip(parent, media)
 
     --边框
     local border = videoTip.gameObject:AddComponent(typeof(Image))
-    border.sprite = Resources.Load("Media/rect-border", typeof(CS.UnityEngine.Sprite))
+    --border.sprite = Resources.Load("Media/rect-border", typeof(CS.UnityEngine.Sprite))
+    border.sprite = MEDIA.border
+
     border.color = themeColor
     border.type = Image.Type.Sliced
 
@@ -3279,9 +3362,15 @@ function MEDIA.NailVideoTip(parent, media)
     videoRenderedRawImage.sizeDelta = Vector2.zero
 
     local rawImage = videoRenderedRawImage.gameObject:AddComponent(typeof(CS.UnityEngine.UI.RawImage))
-    rawImage.texture = Resources.Load("Media/video-light", typeof(CS.UnityEngine.Texture))
+    --rawImage.texture = Resources.Load("Media/video-light", typeof(CS.UnityEngine.Texture))
+    rawImage.texture = MEDIA.videoLight
+
     rawImage.color = Color.white
     rawImage.raycastTarget = true
+
+    local aspectRatioFitter = rawImage.gameObject:AddComponent(typeof(CS.UnityEngine.UI.AspectRatioFitter))
+    aspectRatioFitter.aspectMode = CS.UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent
+    aspectRatioFitter.aspectRatio = 1.0
 
     --是否需要上下切换按钮
     if #media.url > 1 then
@@ -3298,12 +3387,13 @@ function MEDIA.NailVideoTip(parent, media)
         previousARArrow.anchorMin = Vector2(0, 0.5)
         previousARArrow.anchorMax = Vector2(0, 0.5)
         previousARArrow.pivot = Vector2(1, 0.5)
-        previousARArrow.sizeDelta = Vector2(0.1, 0.1)
+        previousARArrow.sizeDelta = Vector2(0.06, 0.06)
         previousARArrow.anchoredPosition3D = Vector2.zero
 
         local previousARImage = previousARArrow.gameObject:AddComponent(typeof(Image))
 
-        previousARImage.sprite = Resources.Load("Media/arrow", typeof(CS.UnityEngine.Sprite))
+        --previousARImage.sprite = Resources.Load("Media/arrow", typeof(CS.UnityEngine.Sprite))
+        previousARImage.sprite = MEDIA.arrow
 
         previousARImage.color = themeColor
 
@@ -3322,12 +3412,13 @@ function MEDIA.NailVideoTip(parent, media)
         nextARArrow.anchorMin = Vector2(1, 0.5)
         nextARArrow.anchorMax = Vector2(1, 0.5)
         nextARArrow.pivot = Vector2(1, 0.5)
-        nextARArrow.sizeDelta = Vector2(0.1, 0.1)
+        nextARArrow.sizeDelta = Vector2(0.06, 0.06)
         nextARArrow.anchoredPosition3D = Vector2.zero
 
         local nextARImage = nextARArrow.gameObject:AddComponent(typeof(Image))
 
-        nextARImage.sprite = Resources.Load("Media/arrow", typeof(CS.UnityEngine.Sprite))
+        --nextARImage.sprite = Resources.Load("Media/arrow", typeof(CS.UnityEngine.Sprite))
+        nextARImage.sprite = MEDIA.arrow
 
         nextARImage.color = themeColor
 
@@ -3436,6 +3527,8 @@ function MEDIA.NailVideoTip(parent, media)
 end
 
 function VIDEO.fullScreen()
+    --
+    VIDEO.renderFullScreenRawImage.texture = VIDEO.renderRawImage.texture
     --将画面渲染设置为RenderImage
     VIDEO.renderRawImage = VIDEO.renderFullScreenRawImage
 
@@ -3500,6 +3593,7 @@ end
 
 --重置多媒体功能
 function MEDIA.Reset()
+
     --初始化
     MEDIA.progressSlider.value = 0
 
@@ -3580,9 +3674,11 @@ function AUDIO.AudioPrepared()
     AUDIO.AnimateAct(MEDIA.currentMedia)
 
 end
-
-AUDIO.lightSignal = Resources.Load("Media/audio-light", typeof(CS.UnityEngine.Sprite))
-AUDIO.darkSignal = Resources.Load("Media/audio-dark", typeof(CS.UnityEngine.Sprite))
+print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+--AUDIO.lightSignal = Resources.Load("Media/audio-light", typeof(CS.UnityEngine.Sprite))
+AUDIO.lightSignal = MEDIA.audioLight
+--AUDIO.darkSignal = Resources.Load("Media/audio-dark", typeof(CS.UnityEngine.Sprite))
+AUDIO.darkSignal = MEDIA.audioDark
 
 function AUDIO.TwinkleTip(media)
 
@@ -3613,13 +3709,21 @@ function AUDIO.TwinkleTip(media)
 end
 
 AUDIO.animateActArray = {
-    Resources.Load("Media/audio-progress/1", typeof(CS.UnityEngine.Sprite)),
-    Resources.Load("Media/audio-progress/2", typeof(CS.UnityEngine.Sprite)),
-    Resources.Load("Media/audio-progress/3", typeof(CS.UnityEngine.Sprite)),
-    Resources.Load("Media/audio-progress/4", typeof(CS.UnityEngine.Sprite)),
-    Resources.Load("Media/audio-progress/5", typeof(CS.UnityEngine.Sprite)),
-    Resources.Load("Media/audio-progress/6", typeof(CS.UnityEngine.Sprite)),
-    Resources.Load("Media/audio-progress/7", typeof(CS.UnityEngine.Sprite))
+    MEDIA.audio1,
+    MEDIA.audio2,
+    MEDIA.audio3,
+    MEDIA.audio4,
+    MEDIA.audio5,
+    MEDIA.audio6,
+    MEDIA.audio7,
+    MEDIA.audio8,
+    --Resources.Load("Media/audio-progress/1", typeof(CS.UnityEngine.Sprite)),
+    --Resources.Load("Media/audio-progress/2", typeof(CS.UnityEngine.Sprite)),
+    --Resources.Load("Media/audio-progress/3", typeof(CS.UnityEngine.Sprite)),
+    --Resources.Load("Media/audio-progress/4", typeof(CS.UnityEngine.Sprite)),
+    --Resources.Load("Media/audio-progress/5", typeof(CS.UnityEngine.Sprite)),
+    --Resources.Load("Media/audio-progress/6", typeof(CS.UnityEngine.Sprite)),
+    --Resources.Load("Media/audio-progress/7", typeof(CS.UnityEngine.Sprite))
 }
 
 function AUDIO.AnimateAct(media)
@@ -3807,8 +3911,10 @@ function VIDEO.VideoPrepared()
     VIDEO.needUpdateProcess = true
 end
 
-VIDEO.lightSignal = Resources.Load("Media/video-light", typeof(CS.UnityEngine.Texture))
-VIDEO.darkSignal = Resources.Load("Media/video-dark", typeof(CS.UnityEngine.Texture))
+--VIDEO.lightSignal = Resources.Load("Media/video-light", typeof(CS.UnityEngine.Texture))
+VIDEO.lightSignal = MEDIA.videoLight
+--VIDEO.darkSignal = Resources.Load("Media/video-dark", typeof(CS.UnityEngine.Texture))
+VIDEO.darkSignal = MEDIA.videoDark
 
 function VIDEO.TwinkleTip(media)
 
@@ -3866,8 +3972,6 @@ end
 
 VIDEO.PressDownStamp = 0.0
 
-VIDEO.defaultTexture = Resources.Load("video", typeof(CS.UnityEngine.Texture))
-
 --播放视频功能
 function VIDEO.PlayVideo(...)
 
@@ -3898,12 +4002,12 @@ function VIDEO.PlayVideo(...)
 
     --设置播放路径
     if media ~= nil then
-        --播放当前资源已存下表的资源链接
+        --播放当前资源已存下标的资源链接
         VIDEO.videoPlayer.url = media.url[media.index]
-
         --
         MEDIA.currentMedia = media
 
+        MEDIA.mediaArray[currentMarkerGameObject.name][MEDIA.currentMedia._id].progress = 0.0
     else
         VIDEO.videoPlayer.url = VIDEO.videoPlayer.url
     end
@@ -3990,7 +4094,9 @@ function update()
     if VIDEO.needUpdateProcess then
         --
         if VIDEO.renderRawImage ~= nil then
+
             VIDEO.renderRawImage.texture = VIDEO.videoPlayer.texture
+            --
             local aspectRatioFitter = VIDEO.renderRawImage.gameObject:GetComponent("AspectRatioFitter")
             if aspectRatioFitter ~= nil then
                 aspectRatioFitter.aspectMode = CS.UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent
@@ -4014,11 +4120,27 @@ function update()
         MEDIA.progressSlider.value = AUDIO.audioSource.time
     end
 
-    --多媒体资源播放完毕
-    if MEDIA.currentTimeStamp.text == MEDIA.totalTimeStamp.text and not AUDIO.audioSource.isPlaying and not VIDEO.videoPlayer.isPlaying then
-        print("Media has played once!")
+    if not AUDIO.audioSource.isPlaying and not VIDEO.videoPlayer.isPlaying then
+        --当前资源是否为空
+        if MEDIA.currentMedia ~= nil then
+
+            if AUDIO.needUpdateProcess or VIDEO.needUpdateProcess then
+                print("Media has played once!")
+
+                MEDIA.Reset()
+            end
+        end
         --
-        MEDIA.Reset()
+    end
+
+    --多媒体资源播放完毕
+    if MEDIA.currentTimeStamp.text == MEDIA.totalTimeStamp.text then
+
+        if not AUDIO.audioSource.isPlaying and not VIDEO.videoPlayer.isPlaying then
+            print("Media has played once!")
+            --
+            MEDIA.Reset()
+        end
     end
 end
 

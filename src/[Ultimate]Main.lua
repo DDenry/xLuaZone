@@ -3,7 +3,7 @@
 --- DateTime: 2017/6/19 22:18
 ---
 
-local BasePackage = require('[BasePackage]')
+local BasePackage = require('Reconstruct.[BasePackage]')
 local util = require 'xlua.util'
 local yield_return = (require 'cs_coroutine').yield_return
 
