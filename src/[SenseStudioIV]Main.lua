@@ -426,6 +426,7 @@ local pageName
 local assetBundleName
 local modelName
 local haveMulModel
+local autoShow
 --
 local sectionNum = 0
 local canControl = false
@@ -1357,6 +1358,7 @@ function CALLBACK.MarkerJSONLoaded(markerJson)
         print(tostring(markerTxt[i][5]))
         print(tostring(markerTxt[i][6]))
         print(tostring(markerTxt[i][7]))
+        print(tostring(markerTxt[i][8]))
         --
         local table_MarkerJson = {}
 
@@ -1379,7 +1381,8 @@ function CALLBACK.MarkerJSONLoaded(markerJson)
         _, _, _, table_MarkerJson[7] = string.find(tostring(markerTxt[i][6]), "([\"'])(.-)%1")
         --haveModels
         _, _, _, table_MarkerJson[8] = string.find(tostring(markerTxt[i][7]), "([\"'])(.-)%1")
-
+        --autoShow
+        _, _, _, table_MarkerJson[9] = string.find(tostring(markerTxt[i][8]), "([\"'])(.-)%1")
         --
         table_MarkerToModel[#table_MarkerToModel + 1] = table_MarkerJson
     end
@@ -2094,6 +2097,8 @@ function CALLBACK.TrackingFound(DynamicTarget)
             sectionNum = ((table_MarkerToModel[i][7] == nil) and "") or ((string.len(tostring(table_MarkerToModel[i][7])) > 1 and "") or table_MarkerToModel[i][7])
             --
             haveMulModel = ((table_MarkerToModel[i][8] == nil) and "") or table_MarkerToModel[i][8]
+            --
+            autoShow = ((table_MarkerToModel[i][9] == nil) and "") or table_MarkerToModel[i][9]
 
             --如果显示模式为UIWidget
             if pageListType == pageListType_UIWidget then
@@ -2123,14 +2128,14 @@ function CALLBACK.TrackingFound(DynamicTarget)
                     --设置当前书页为选中状态
                     CustomTileView.DataSource[value].IsSelected = true
                 else
-                    COMMON.LogError("AllPageInfo.json 与 Marker.json 文件内容有误！")
+                    LogError("AllPageInfo.json 与 Marker.json 文件内容有误！")
                 end
             end
 
             --需要加载模型
             if needLoad then
                 --pagelist://do?#index|projectPath=projectPath&sceneGuid=sceneGuid&sceneName=assetBundlePath&modelName=modelName&haveModels=htmlPath&sectionNum=sectionNum
-                local url = "pagelist://doType?#" .. (i - 1) .. "|projectPath=" .. projectPath .. "&sceneGuid=" .. sceneGuid .. "&sceneName=" .. sceneName .. "&pageName=" .. pageName .. "&modelName=" .. modelName .. "&haveMulModel=" .. haveMulModel .. "&sectionNum=" .. sectionNum
+                local url = "pagelist://doType?#" .. (i - 1) .. "|projectPath=" .. projectPath .. "&sceneGuid=" .. sceneGuid .. "&sceneName=" .. sceneName .. "&pageName=" .. pageName .. "&modelName=" .. modelName .. "&haveMulModel=" .. haveMulModel .. "&sectionNum=" .. sectionNum .. "&autoShow=" .. autoShow
 
                 --加载模型
                 CALLBACK.PageListSelected(url)
@@ -2139,7 +2144,7 @@ function CALLBACK.TrackingFound(DynamicTarget)
                 MainSubtitleText.text = (modelName ~= nil and modelName) or ""
 
                 if doType ~= nil and doType == "video" then
-
+                    --播放视频
                     PROCEDURE.PlayVideo()
                 end
 
@@ -2628,6 +2633,16 @@ function CALLBACK.ModelLoaded(...)
         --设置所加载的模型Layer为model层
         for i = 0, MakerAll:GetComponentsInChildren(typeof(objectDataType)).Length - 1 do
             MakerAll:GetComponentsInChildren(typeof(objectDataType))[i].gameObject.layer = 8
+            --判断当前物体是否是New Light
+            if MakerAll:GetComponentsInChildren(typeof(objectDataType))[i].gameObject.name == "New Light" then
+                --
+                local light = MakerAll:GetComponentsInChildren(typeof(objectDataType))[i].gameObject:GetComponent("Light")
+
+                if light ~= nil then
+                    --设置灯光只渲染Model层(layer:8)
+                    light.cullingMask = (1 << 8)
+                end
+            end
         end
 
         --判断是否要打开第二页
@@ -2776,6 +2791,7 @@ function PROCESS.SetParameters()
         modelName = (urlParameters['modelName'] ~= nil and urlParameters['modelName']) or nil
         haveMulModel = (urlParameters['haveMulModel'] ~= nil and urlParameters['haveMulModel']) or nil
         sectionNum = (urlParameters['sectionNum'] ~= nil and (((string.len(tostring(urlParameters['sectionNum'])) > 1) and "") or urlParameters['sectionNum'])) or sectionNum
+        autoShow = (urlParameters['autoShow'] ~= nil and urlParameters['autoShow']) or nil
     end
     --
     _Global:SetData("sceneName", sceneName)
@@ -2785,6 +2801,8 @@ function PROCESS.SetParameters()
     _Global:SetData("_sectionNum", sectionNum)
     --
     _Global:SetData("haveMulModel", haveMulModel)
+    --
+    _Global:SetData("autoShow", autoShow)
 end
 
 --string.split()
@@ -2963,7 +2981,7 @@ end
 
 --string to boolean
 function string:toboolean()
-    if self == "true" then
+    if self == "true" or self == "True" then
         return true
     else
         return false
@@ -3015,6 +3033,9 @@ function ondisable()
     end
     if _Global:GetData("haveMulModel") ~= nil then
         _Global:ReleseData("haveMulModel")
+    end
+    if _Global:GetData("autoShow") ~= nil then
+        _Global:ReleseData("autoShow")
     end
 end
 

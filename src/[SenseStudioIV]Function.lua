@@ -542,25 +542,19 @@ function StudioData.FindStudioObjectData()
     print("Match ID and models Accomplished!")
 end
 
+local haveSinglePoint = false
+
 --加载标注点信息
 function StudioData.LoadPointData()
     --
     print("Load PointData Enter!")
-
-    --添加WebView
-    UniWebView_Point:AddComponent(typeof(CS.CallbackFromWebToUnity))
-
-    --获取标注点WebView回调
-    CallbackFromUniWebView = UniWebView_Point:GetComponent(typeof(CS.CallbackFromWebToUnity))
-
-    --注册WebView回调监听
-    CallbackFromUniWebView.OnReceived:AddListener(ClosePointWebView)
 
     --普通标注点数量
     local point_normal_number = 0
     --步骤标注点数量
     local point_step_number = 0
 
+    ---SenseStudioIII
     if _Global:GetData("SenseStudioNameSpace") == "SceneStudio.StudioDataManager" then
 
         if OriObject:GetComponentsInChildren(typeof(CS.SceneStudio.PointData)).Length > 0 then
@@ -609,6 +603,7 @@ function StudioData.LoadPointData()
                 yield_return(www)
 
                 if www.error == nil then
+
                     Prefab_Point_Tmp:GetComponent(typeof(CS.EzComponents.QuickEvent)).onEvent:AddListener(
                     --点击标注点打开WebView
                             function()
@@ -658,7 +653,7 @@ function StudioData.LoadPointData()
         else
             print("There's no point data!")
         end
-
+        ---SenseStudioIV
     elseif _Global:GetData("SenseStudioNameSpace") == "SenseStudio.IV.StudioDataManager" then
 
         local objectData = OriObject:GetComponentsInChildren(typeof(CS.SenseStudio.IV.RuntimeData.ObjectData), true)
@@ -764,6 +759,22 @@ function StudioData.LoadPointData()
                 end
             end
         end
+
+        ---2019年6月3日 DJ提出需求，单一的标注点需直接打开H5页，并郑重承诺有且仅有此类标注点可以起名为"New Object"
+        ---2019年7月1日 DJ再次提出该需求，不得不定制化该功能
+        --判断是否是唯一标注点
+        if #table_prefab_point_normal == 1 then
+
+            haveSinglePoint = _Global:GetData("autoShow"):toboolean()
+
+            if haveSinglePoint then
+                print("This point will auto open!")
+
+                table_prefab_point_normal[1]:GetComponent(typeof(CS.EzComponents.QuickEvent)).onEvent:Invoke()
+            end
+        else
+            haveSinglePoint = false
+        end
     end
 
     --判断是否有普通标注点
@@ -792,52 +803,48 @@ end
 
 --
 function AutoSlide(Prefab_Point_Tmp)
-    if Prefab_Point_Tmp ~= nil then
-        --判断该标注点是否显示
-        if Prefab_Point_Tmp.activeSelf then
-            --判断深度检测是否显示
-            if Prefab_Point_Tmp:GetComponentInChildren(typeof(CS.UnityEngine.UI.Text)) ~= nil then
-                local rectTransform = Prefab_Point_Tmp:GetComponentInChildren(typeof(CS.UnityEngine.UI.Text)).gameObject:GetComponent("RectTransform")
+    --判断该标注点是否显示
+    if Prefab_Point_Tmp ~= nil and Prefab_Point_Tmp.activeSelf then
+        --判断深度检测是否显示
+        if Prefab_Point_Tmp:GetComponentInChildren(typeof(CS.UnityEngine.UI.Text)) ~= nil then
+            local rectTransform = Prefab_Point_Tmp:GetComponentInChildren(typeof(CS.UnityEngine.UI.Text)).gameObject:GetComponent("RectTransform")
 
-                yield_return(1)
+            yield_return(1)
 
-                --需要滑动
-                if rectTransform.sizeDelta.x > 0 then
-                    --从左向右滑动
-                    if rectTransform.anchoredPosition.x <= -rectTransform.sizeDelta.x then
-                        rectTransform.anchoredPosition = Vector2(0, rectTransform.anchoredPosition.y)
-                    else
-                        rectTransform.anchoredPosition = Vector2(rectTransform.anchoredPosition.x - 10, rectTransform.anchoredPosition.y)
-                    end
-                    --速率为每秒更新
-                    yield_return(CS.UnityEngine.WaitForSeconds(1))
+            --需要滑动
+            if rectTransform.sizeDelta.x > 0 then
+                --从左向右滑动
+                if rectTransform.anchoredPosition.x <= -rectTransform.sizeDelta.x then
+                    rectTransform.anchoredPosition = Vector2(0, rectTransform.anchoredPosition.y)
                 else
-                    --不需要滑动，居中显示
-                    local _texts = Prefab_Point_Tmp:GetComponentsInChildren(typeof(CS.UnityEngine.UI.Text), true)
-                    for i = 0, _texts.Length - 1 do
-                        _texts[i].gameObject:GetComponent(typeof(CS.UnityEngine.UI.ContentSizeFitter)).enabled = false
-                        _texts[i].gameObject:GetComponent("RectTransform").offsetMax = Vector2.zero
-                    end
-                    return
+                    rectTransform.anchoredPosition = Vector2(rectTransform.anchoredPosition.x - 10, rectTransform.anchoredPosition.y)
                 end
+                --速率为每秒更新
+                yield_return(CS.UnityEngine.WaitForSeconds(1))
             else
-                --每5帧检测一次
-                yield_return(5)
+                --不需要滑动，居中显示
+                local _texts = Prefab_Point_Tmp:GetComponentsInChildren(typeof(CS.UnityEngine.UI.Text), true)
+                for i = 0, _texts.Length - 1 do
+                    _texts[i].gameObject:GetComponent(typeof(CS.UnityEngine.UI.ContentSizeFitter)).enabled = false
+                    _texts[i].gameObject:GetComponent("RectTransform").offsetMax = Vector2.zero
+                end
+                return
             end
         else
             --每5帧检测一次
-            yield_return(CS.UnityEngine.WaitForSeconds(1))
+            yield_return(5)
         end
-
-        --递归
-        assert(coroutine.resume(coroutine.create(function()
-            if Prefab_Point_Tmp ~= nil then
-                AutoSlide(Prefab_Point_Tmp)
-            end
-        end)))
     else
-        return
+        --每1s检测一次
+        yield_return(CS.UnityEngine.WaitForSeconds(1))
     end
+
+    --递归
+    assert(coroutine.resume(coroutine.create(function()
+        if Prefab_Point_Tmp ~= nil then
+            AutoSlide(Prefab_Point_Tmp)
+        end
+    end)))
 end
 
 --
@@ -1116,7 +1123,7 @@ function PROCESS.PrepareScene()
     Contents.transform.localRotation = defaultViewTransform['localRotation']
 
     --将模型缩放至0.05(为适配工具校验大小为200)
-    Models.transform.localScale = Vector3(0.05, 0.05, 0.05)
+    --Models.transform.localScale = Vector3(0.05, 0.05, 0.05)
 
     --开启协程
     assert(coroutine.resume(coroutine.create(function()
@@ -1228,7 +1235,7 @@ end
 
 --string to boolean
 function string:toboolean()
-    if self == "true" then
+    if self == "true" or self == "True" then
         return true
     else
         return false
@@ -1242,6 +1249,13 @@ end
 
 --标注点WebView回调监听
 function ClosePointWebView(message)
+
+    --判断单标注点无模型且无多模型列表
+    if haveSinglePoint and not MulModelList.activeSelf then
+        --直接退出到书页列表
+        GameObject.Find("Root/UI/Main UI Canvas/Title Panel/BackButtonPanel"):GetComponent("Button").onClick:Invoke()
+    end
+
     --关闭标注点WebView
     CS.UnityEngine.Object.Destroy(CallbackFromUniWebView._webView)
 
@@ -1305,6 +1319,14 @@ local play_step = -1
 
 --添加监听
 function COMMON.RegisterListener()
+    --添加WebView
+    UniWebView_Point:AddComponent(typeof(CS.CallbackFromWebToUnity))
+
+    --获取标注点WebView回调
+    CallbackFromUniWebView = UniWebView_Point:GetComponent(typeof(CS.CallbackFromWebToUnity))
+
+    --注册WebView回调监听
+    CallbackFromUniWebView.OnReceived:AddListener(ClosePointWebView)
 
     --切换背景
     SwitchButton.onClick:AddListener(function()
@@ -3016,6 +3038,11 @@ end
 --
 function ondestroy()
     print("SubController_Destroy!")
+
+    ---ATTENTION:需要注销掉回调监听
+    if CallbackFromUniWebView ~= nil then
+        CallbackFromUniWebView.OnReceived:RemoveAllListeners()
+    end
     --
     CALLBACK = nil
     COMMON = nil

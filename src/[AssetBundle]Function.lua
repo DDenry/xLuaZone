@@ -637,52 +637,49 @@ end
 
 --
 function AutoSlide(Prefab_Point_Tmp)
-    if Prefab_Point_Tmp ~= nil then
-        --判断该标注点是否显示
-        if Prefab_Point_Tmp.activeSelf then
-            --判断深度检测是否显示
-            if Prefab_Point_Tmp:GetComponentInChildren(typeof(CS.UnityEngine.UI.Text)) ~= nil then
-                local rectTransform = Prefab_Point_Tmp:GetComponentInChildren(typeof(CS.UnityEngine.UI.Text)).gameObject:GetComponent("RectTransform")
 
-                yield_return(1)
+    --判断该标注点是否显示
+    if Prefab_Point_Tmp ~= nil and Prefab_Point_Tmp.activeSelf then
+        --判断深度检测是否显示
+        if Prefab_Point_Tmp:GetComponentInChildren(typeof(CS.UnityEngine.UI.Text)) ~= nil then
+            local rectTransform = Prefab_Point_Tmp:GetComponentInChildren(typeof(CS.UnityEngine.UI.Text)).gameObject:GetComponent("RectTransform")
 
-                --需要滑动
-                if rectTransform.sizeDelta.x > 0 then
-                    --从左向右滑动
-                    if rectTransform.anchoredPosition.x <= -rectTransform.sizeDelta.x then
-                        rectTransform.anchoredPosition = Vector2(0, rectTransform.anchoredPosition.y)
-                    else
-                        rectTransform.anchoredPosition = Vector2(rectTransform.anchoredPosition.x - 10, rectTransform.anchoredPosition.y)
-                    end
-                    --速率为每秒更新
-                    yield_return(CS.UnityEngine.WaitForSeconds(1))
+            yield_return(1)
+
+            --需要滑动
+            if rectTransform.sizeDelta.x > 0 then
+                --从左向右滑动
+                if rectTransform.anchoredPosition.x <= -rectTransform.sizeDelta.x then
+                    rectTransform.anchoredPosition = Vector2(0, rectTransform.anchoredPosition.y)
                 else
-                    --不需要滑动，居中显示
-                    local _texts = Prefab_Point_Tmp:GetComponentsInChildren(typeof(CS.UnityEngine.UI.Text), true)
-                    for i = 0, _texts.Length - 1 do
-                        _texts[i].gameObject:GetComponent(typeof(CS.UnityEngine.UI.ContentSizeFitter)).enabled = false
-                        _texts[i].gameObject:GetComponent("RectTransform").offsetMax = Vector2.zero
-                    end
-                    return
+                    rectTransform.anchoredPosition = Vector2(rectTransform.anchoredPosition.x - 10, rectTransform.anchoredPosition.y)
                 end
+                --速率为每秒更新
+                yield_return(CS.UnityEngine.WaitForSeconds(1))
             else
-                --每5帧检测一次
-                yield_return(5)
+                --不需要滑动，居中显示
+                local _texts = Prefab_Point_Tmp:GetComponentsInChildren(typeof(CS.UnityEngine.UI.Text), true)
+                for i = 0, _texts.Length - 1 do
+                    _texts[i].gameObject:GetComponent(typeof(CS.UnityEngine.UI.ContentSizeFitter)).enabled = false
+                    _texts[i].gameObject:GetComponent("RectTransform").offsetMax = Vector2.zero
+                end
+                return
             end
         else
             --每5帧检测一次
-            yield_return(CS.UnityEngine.WaitForSeconds(1))
+            yield_return(5)
         end
-
-        --递归
-        assert(coroutine.resume(coroutine.create(function()
-            if Prefab_Point_Tmp ~= nil then
-                AutoSlide(Prefab_Point_Tmp)
-            end
-        end)))
     else
-        return
+        --每5帧检测一次
+        yield_return(CS.UnityEngine.WaitForSeconds(1))
     end
+
+    --递归
+    assert(coroutine.resume(coroutine.create(function()
+        if Prefab_Point_Tmp ~= nil then
+            AutoSlide(Prefab_Point_Tmp)
+        end
+    end)))
 end
 
 --

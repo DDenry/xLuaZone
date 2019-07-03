@@ -99,7 +99,7 @@ function PROCESS.GenerateItems(selectedPageName)
                 --
                 if currentSelectedItem ~= _item then
                     --重置所有Item为未选中状态
-                    for i, _item in ipairs(loadedItems) do
+                    for j, _item in ipairs(loadedItems) do
                         _item:GetComponent("Image").color = unSelectedColor
                         _item.transform:Find("Text"):GetComponent("Text").color = defaultTextColor
                     end
@@ -113,17 +113,29 @@ function PROCESS.GenerateItems(selectedPageName)
 
                     local projectPath = ""
 
+                    local sceneName = ""
+
                     local sceneGuid = ""
+
+                    local autoShow = false
 
                     if value[i].ProjectPath ~= nil then
                         projectPath = value[i].ProjectPath
+                    end
+
+                    if value[i].SceneName ~= nil then
+                        sceneName = value[i].SceneName
                     end
 
                     if value[i].SceneGuid ~= nil then
                         sceneGuid = value[i].SceneGuid
                     end
 
-                    local _url = url .. "#-1|projectPath=" .. projectPath .. "&sceneGuid=" .. sceneGuid .. "&sceneName=" .. value[i].SceneName .. "&pageName=" .. value[i].PageName .. "&modelName=" .. value[i].ModelName .. "&haveMulModel=False&sectionNum=" .. value[i].SortingName
+                    if value[i].AutoShowPoint ~= nil then
+                        autoShow = value[i].AutoShowPoint
+                    end
+
+                    local _url = url .. "#-1|projectPath=" .. projectPath .. "&sceneGuid=" .. sceneGuid .. "&sceneName=" .. sceneName .. "&pageName=" .. value[i].PageName .. "&modelName=" .. value[i].ModelName .. "&haveMulModel=False&sectionNum=" .. value[i].SortingName .. "&autoShow=" .. tostring(autoShow)
 
                     print("MulModelList_PageSelected:" .. _url)
 
