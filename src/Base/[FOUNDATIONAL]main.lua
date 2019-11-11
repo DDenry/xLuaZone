@@ -42,6 +42,8 @@ local Vuforia = CS.Vuforia
 local VuforiaBehaviour = Vuforia.VuforiaBehaviour
 local VuforiaConfiguration = Vuforia.VuforiaConfiguration
 local Input = CS.UnityEngine.Input
+local WWW = CS.UnityEngine.WWW
+local File = CS.System.IO.File
 
 local _id = 0
 
@@ -354,6 +356,8 @@ local screenWidth = CS.UnityEngine.Screen.width
 
 local rootPath
 
+local model = "ONCE_TRACKING"
+
 --
 function onenable()
 
@@ -370,6 +374,8 @@ function onenable()
 
 end
 
+local childAppId, versionType, wwwHeadPath
+
 --
 function start()
 
@@ -382,6 +388,15 @@ function start()
     PROCESS.Try2FindChildAppId()
 
     PROCESS:FindVersionType()
+
+    print("[AppConfig] | " .. childAppId .. "_" .. versionType)
+
+    --
+    Task      :new("ConfigureAR", {
+        function()
+            PROCEDURE:ConfigureARPath()
+        end
+    }, nil, 0):PostInQueue()
 
     --创建应用Task并执行
     Task      :new("Prepare", {
@@ -400,8 +415,6 @@ function start()
     }, nil, 0):PostInQueue()
 
 end
-
-local childAppId, versionType, wwwHeadPath
 
 function PROCESS.Try2FindChildAppId()
     --判断路径最后一位是否为'/'
@@ -477,6 +490,84 @@ function PROCEDURE:Prepare()
     PROCEDURE.Node[#PROCEDURE.Node + 1] = PROCEDURE:PrepareARCamera()
     PROCEDURE.Node[#PROCEDURE.Node + 1] = PROCEDURE:PrepareDataSet()
 end
+
+function PROCEDURE:ConfigureARPath()
+
+    DataSetLoader.Path = rootPath .. childAppId .. ".xml"
+
+    if GameObject.Find("ARCamera") == nil then
+        PROCEDURE:TransferFile()
+    else
+        PROCESS.TaskDone("ConfigureAR")
+    end
+
+end
+
+function PROCEDURE:TransferFile()
+
+    local xmlFile = childAppId .. ".xml"
+    local datFile = childAppId .. ".dat"
+
+    PROCEDURE:MoveFile(
+            {
+                rootPath .. xmlFile,
+                rootPath .. datFile
+            },
+            {
+                Application.persistentDataPath .. "/" .. xmlFile,
+                Application.persistentDataPath .. "/" .. datFile
+            }, function()
+                --
+                DataSetLoader.Path = Application.persistentDataPath .. "/" .. xmlFile
+                --Task Done
+                PROCESS.TaskDone("ConfigureAR")
+            end)
+end
+
+function PROCEDURE:MoveFile(sources, destinies, ...)
+
+    local callback = select(1, ...)
+
+    local count = math.min(#sources, #destinies)
+
+    if count > 0 then
+        for i = 1, count do
+
+            local source = sources[i]
+            local destiny = destinies[i]
+
+            print("Move\n" .. source .. "\n to \n" .. destiny)
+
+            assert(coroutine.resume(coroutine.create(function()
+                local www = WWW(source)
+
+                yield_return(www)
+
+                if www.error == nil then
+                    File.WriteAllBytes(destiny, www.bytes)
+
+                else
+                    print("WWW.error : " .. www.error)
+                    return
+                end
+
+                count = count - 1
+            end)))
+        end
+
+        assert(coroutine.resume(coroutine.create(function()
+            while (count ~= 0) do
+                yield_return(CS.UnityEngine.WaitForSeconds(1.0))
+            end
+
+            --执行完毕
+            if callback ~= nil then
+                callback()
+            end
+        end)))
+    end
+end
+
 function PROCEDURE:PrepareARCamera()
     if Vuforia.VuforiaBehaviour.Instance == nil then
         CameraAR = GameObject.Instantiate(Resources.Load("prefabs/ARCamera"))
@@ -485,11 +576,10 @@ function PROCEDURE:PrepareARCamera()
         CameraAR = VuforiaBehaviour.Instance:GetComponent("Camera").gameObject
     end
 end
+
 function PROCEDURE:PrepareDataSet()
     --设置vuforia.xml路径
     --DataSetLoader.Path = "F:/Project/MiniProgram/Assets/Special/Vuforia/hospital.xml"
-
-    DataSetLoader.Path = rootPath .. childAppId .. ".xml"
 
     assert(coroutine.resume(coroutine.create(function()
 
@@ -501,11 +591,12 @@ function PROCEDURE:PrepareDataSet()
 
         DataSetLoader:LoadDataSet()
         DataSetLoader:ActiveDataSet()
-
         PROCEDURE:PrepareDynamicTargets()
+
     end)))
 
 end
+
 function PROCEDURE:PrepareDynamicTargets()
     --获取场景中所有GameObject
     local arr_DynamicTargets = GameObject.FindObjectsOfType(typeof(CS.Vuforia.ImageTargetBehaviour))
@@ -516,9 +607,11 @@ function PROCEDURE:PrepareDynamicTargets()
 
             --给识别图添加监听脚本
             arr_DynamicTargets[i].gameObject:AddComponent(typeof(CS.EzComponents.Vuforia.UnityTrackableEventHandler))
+            --arr_DynamicTargets[i].gameObject:AddComponent(typeof(CS.CustomTrackableEventHandler))
 
             --注册监听
             local onFound = arr_DynamicTargets[i].gameObject:GetComponent(typeof(CS.EzComponents.Vuforia.UnityTrackableEventHandler)).onFound
+            --local onFound = arr_DynamicTargets[i].gameObject:GetComponent(typeof(CS.CustomTrackableEventHandler)).onFound
 
             onFound:AddListener(function()
                 PROCEDURE:OnFound(arr_DynamicTargets[i])
@@ -526,7 +619,11 @@ function PROCEDURE:PrepareDynamicTargets()
         end
     end
 end
+
 function PROCEDURE:OnFound(dynamicTarget)
+
+    DataSetLoader:DeactivateDataSet()
+
     local index = 0
 
     _, index = dynamicTarget.name:find("DynamicTarget")
@@ -534,6 +631,10 @@ function PROCEDURE:OnFound(dynamicTarget)
     local filter = dynamicTarget.name:sub(index + string.len("-") + 1)
 
     local target = Root.transform:Find(filter)
+
+    if model == "ALWAYS_TRACKING" then
+        target:SetParent(dynamicTarget.gameObject)
+    end
 
     if not target.gameObject.activeSelf then
         --重置
